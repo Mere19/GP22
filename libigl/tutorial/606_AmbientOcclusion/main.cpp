@@ -5,6 +5,7 @@
 #include <igl/opengl/glfw/Viewer.h>
 #include <iostream>
 
+#include "tutorial_shared_path.h"
 
 // Mesh
 Eigen::MatrixXd V;

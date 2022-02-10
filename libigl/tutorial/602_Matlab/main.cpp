@@ -1,3 +1,4 @@
+#include "tutorial_shared_path.h"
 
 #include <igl/readOFF.h>
 #include <igl/cotmatrix.h>

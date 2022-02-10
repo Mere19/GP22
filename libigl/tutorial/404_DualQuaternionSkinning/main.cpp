@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <iostream>
 
+#include "tutorial_shared_path.h"
 
 typedef 
   std::vector<Eigen::Quaterniond,Eigen::aligned_allocator<Eigen::Quaterniond> >

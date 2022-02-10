@@ -1,3 +1,4 @@
+// Because of Mosek complications, we don't use static library if Mosek is used.
 #include <igl/boundary_conditions.h>
 #include <igl/colon.h>
 #include <igl/column_to_quats.h>
@@ -19,6 +20,7 @@
 #include <algorithm>
 #include <iostream>
 
+#include "tutorial_shared_path.h"
 
 typedef
   std::vector<Eigen::Quaterniond,Eigen::aligned_allocator<Eigen::Quaterniond> >

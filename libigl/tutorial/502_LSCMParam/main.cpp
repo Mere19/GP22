@@ -4,6 +4,7 @@
 
 #include <igl/lscm.h>
 
+#include "tutorial_shared_path.h"
 
 Eigen::MatrixXd V;
 Eigen::MatrixXi F;

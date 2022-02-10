@@ -4,6 +4,7 @@
 #include <igl/read_triangle_mesh.h>
 #include <igl/opengl/glfw/Viewer.h>
 
+#include "tutorial_shared_path.h"
 
 
 int main(int argc, char *argv[])

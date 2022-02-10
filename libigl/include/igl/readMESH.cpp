@@ -48,7 +48,7 @@ IGL_INLINE bool igl::readMESH(
     while(still_comments)
     {
       has_line = fgets(line,LINE_MAX,mesh_file) != NULL;
-      still_comments = (line[0] == '#' || line[0] == '\n' || line[0] == '\r');
+      still_comments = (line[0] == '#' || line[0] == '\n');
     }
     return has_line;
   };

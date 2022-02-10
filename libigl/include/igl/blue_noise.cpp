@@ -15,7 +15,6 @@
 #include <unordered_map>
 #include <algorithm>
 #include <vector>
-#include <random>
 
 namespace igl
 {
@@ -210,8 +209,7 @@ namespace igl
     }
         //printf("  --------\n");
     // randomize order: this might be a little paranoid...
-    std::mt19937 twister;
-    std::shuffle(std::begin(N), std::end(N), twister);
+    std::random_shuffle(std::begin(N), std::end(N));
     bool found = false;
     for(const BlueNoiseKeyType & nk : N)
     {

@@ -5,6 +5,7 @@
 #include <igl/deform_skeleton.h>
 #include <igl/direct_delta_mush.h>
 #include <igl/opengl/glfw/Viewer.h>
+#include "tutorial_shared_path.h"
 #include <Eigen/Geometry>
 #include <vector>
 

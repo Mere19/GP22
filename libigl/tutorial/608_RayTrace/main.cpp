@@ -8,6 +8,8 @@
 // embree
 #include <igl/embree/EmbreeRenderer.h>
 
+#include "tutorial_shared_path.h"
+
 #include <iostream>
 
 int main(int argc, char *argv[])
@@ -21,9 +23,9 @@ int main(int argc, char *argv[])
   const char *mesh_file=argc > 1 ? argv[1] : TUTORIAL_SHARED_PATH "/fertility.off";
   const char *png_file=argc > 2 ? argv[2]: "fertility_curvature.png";
 
-  // Load mesh
+  // Load mesh 
   igl::read_triangle_mesh(mesh_file, V,F);
-
+  
   Eigen::VectorXd K;
   // Compute integral of Gaussian curvature
   igl::gaussian_curvature(V,F,K);
@@ -51,7 +53,7 @@ int main(int argc, char *argv[])
 
   er.set_zoom(1.5);
   er.set_orthographic(false);
-
+     
   Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> R(width, height);
   Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> G(width, height);
   Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> B(width, height);

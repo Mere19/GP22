@@ -15,6 +15,7 @@
 #include <Eigen/Sparse>
 #include <iostream>
 
+#include "tutorial_shared_path.h"
 
 Eigen::MatrixXd V;
 Eigen::MatrixXi T,F;

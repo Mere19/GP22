@@ -15,6 +15,7 @@
 #include <igl/PI.h>
 #include <sstream>
 
+#include "tutorial_shared_path.h"
 #include <igl/serialize.h>
 
 // Input mesh

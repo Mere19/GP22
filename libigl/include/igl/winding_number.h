@@ -16,24 +16,17 @@
 #endif
 namespace igl
 {
-  // WINDING_NUMBER  Computes the generalized winding number at each
-  // dim-dimensional query point in O with respect to the oriented
-  // one-codimensional mesh (V,F). This is equivalent to summing the subtended
-  // signed angles/solid angles of each element in (V,F). See, "Robust
-  // Inside-Outside Segmentation using Generalized Winding Numbers" [Jacobson et
-  // al. 2013].
+  // WINDING_NUMBER Compute the sum of solid angles of a triangle/tetrahedron
+  // described by points (vectors) V
   //
-  //
+  // Templates:
+  //   dim  dimension of input
   // Inputs:
-  //   V  #V by dim list of mesh vertex positions
-  //   F  #F by dim list of mesh facets as indices into rows of V. If dim==2,
-  //     then (V,F) describes a set of edges in the plane. If dim==3, then (V,F)
-  //     describes a triangle mesh/soup.
-  //   O  #O by dim list of query points
-  // Output:
-  //   W  #O by 1 list of winding numbers
-  //
-  // See also: igl::fast_winding_number
+  //  V  n by 3 list of vertex positions
+  //  F  #F by 3 list of triangle indices, minimum index is 0
+  //  O  no by 3 list of origin positions
+  // Outputs:
+  //  S  no by 1 list of winding numbers
   //
   template <
     typename DerivedV,

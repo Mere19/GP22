@@ -1,5 +1,6 @@
 #include <igl/readOFF.h>
 #include <igl/opengl/glfw/Viewer.h>
+#include "tutorial_shared_path.h"
 
 Eigen::MatrixXd V;
 Eigen::MatrixXi F;
@@ -15,7 +16,7 @@ int main(int argc, char *argv[])
   viewer.data().set_mesh(V, F);
 
   // Use the (normalized) vertex positions as colors
-  C =
+  C = 
     (V.rowwise()            - V.colwise().minCoeff()).array().rowwise()/
     (V.colwise().maxCoeff() - V.colwise().minCoeff()).array();
 

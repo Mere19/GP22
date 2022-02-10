@@ -18,8 +18,7 @@ IGL_INLINE bool igl::lscm(
   const Eigen::MatrixXi& F,
   const Eigen::VectorXi& b,
   const Eigen::MatrixXd& bc,
-  Eigen::MatrixXd & V_uv,
-  Eigen::SparseMatrix<double> & Q)
+  Eigen::MatrixXd & V_uv)
 {
   using namespace Eigen;
   using namespace std;
@@ -44,7 +43,7 @@ IGL_INLINE bool igl::lscm(
   }
   
   // Minimize the LSCM energy
-  Q = -L_flat - 2.*A;
+  SparseMatrix<double> Q = -L_flat + 2.*A;
   const VectorXd B_flat = VectorXd::Zero(V.rows()*2);
   igl::min_quad_with_fixed_data<double> data;
   if(!igl::min_quad_with_fixed_precompute(Q,b_flat,SparseMatrix<double>(),true,data))
@@ -66,17 +65,6 @@ IGL_INLINE bool igl::lscm(
     V_uv.col(V_uv.cols()-i-1) = W_flat.block(V_uv.rows()*i,0,V_uv.rows(),1);
   }
   return true;
-}
-
-IGL_INLINE bool igl::lscm(
-  const Eigen::MatrixXd& V,
-  const Eigen::MatrixXi& F,
-  const Eigen::VectorXi& b,
-  const Eigen::MatrixXd& bc,
-  Eigen::MatrixXd & V_uv)
-{
-  Eigen::SparseMatrix<double> Q;
-  return lscm(V, F, b, bc, V_uv, Q);
 }
 
 #ifdef IGL_STATIC_LIBRARY

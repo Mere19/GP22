@@ -1,3 +1,4 @@
+#include "tutorial_shared_path.h"
 #include <igl/readOFF.h>
 #include <igl/unproject_onto_mesh.h>
 #include <igl/opengl/glfw/Viewer.h>

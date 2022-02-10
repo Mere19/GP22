@@ -7,9 +7,11 @@
 #include <igl/signed_distance.h>
 #include <igl/writeOBJ.h>
 #include <igl/get_seconds.h>
-#include <igl/marching_cubes.h>
 #include <Eigen/Core>
 
+#include "tutorial_shared_path.h"
+
+#include <igl/marching_cubes.h>
 
 int main(int argc, char * argv[])
 {
@@ -52,7 +54,7 @@ int main(int argc, char * argv[])
       S,I,C,N);
   }
   printf("igl::signed_distance          %g secs\n",tictoc());
-
+  
   std::vector<Eigen::MatrixXd> SV(3);
   std::vector<Eigen::MatrixXi> SF(3);
   igl::marching_tets(TV,TT5,S,0,SV[0],SF[0]);
@@ -81,12 +83,12 @@ int main(int argc, char * argv[])
   {
     switch(key)
     {
-      case ',':
-      case '.':
+      case ',': 
+      case '.': 
         sel = (sel+SV.size()+(key=='.'?1:-1))%SV.size();
         update();
         return true;
-      case ' ':
+      case ' ': 
         vr.data_list[0].is_visible = !vr.data_list[0].is_visible;
         vr.data_list[1].is_visible = !vr.data_list[1].is_visible;
         vr.selected_data_index = (vr.selected_data_index+1)%2;

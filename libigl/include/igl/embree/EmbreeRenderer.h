@@ -50,6 +50,7 @@ namespace igl
       typedef Eigen::Matrix<float,Eigen::Dynamic,3> PointMatrixType;
       typedef Eigen::Matrix<float,Eigen::Dynamic,3> ColorMatrixType;
       typedef Eigen::Matrix<int,  Eigen::Dynamic,3> FaceMatrixType;
+
       typedef Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> PixelMatrixType;
 
     public:
@@ -66,22 +67,19 @@ namespace igl
       //   V  #V x dim matrix of vertex coordinates
       //   F  #F x simplex_size  matrix of indices of simplex corners into V
       //   is_static - optimize for static thene (HQ rendering)
-      template <typename DerivedV, typename DerivedF>
-      void set_mesh(const Eigen::MatrixBase<DerivedV> & V,
-                    const Eigen::MatrixBase<DerivedF> & F,
+      void set_mesh(const Eigen::Matrix<double,Eigen::Dynamic,3> & V,
+                    const Eigen::Matrix<int,  Eigen::Dynamic,3>  & F,
                     bool is_static=true);
-
       // Specify per-vertex or per-face color
       // Inputs:
       //   C  #V x 3 matrix of vertex colors
       //    or #F x 3 matrix of face colors
       //    or 1 x 3 matrix of uniform color
-      template <typename DerivedC>
-      void set_colors(const Eigen::MatrixBase<DerivedC> & C);
+      void set_colors(const Eigen::MatrixXd & C);
+
 
       // Use min(D) and max(D) to set caxis.
-      template <typename DerivedD>
-      void set_data(const Eigen::MatrixBase<DerivedD> & D,
+      void set_data(const Eigen::VectorXd & D,
                     igl::ColorMapType cmap = igl::COLOR_MAP_TYPE_VIRIDIS);
 
       // Specify per-vertex or per-face scalar field
@@ -92,30 +90,26 @@ namespace igl
       //   D  #V by 1 list of scalar values
       //   cmap colormap type
       //   num_steps number of intervals to discretize the colormap
-      template <typename DerivedD, typename T>
       void set_data(
-        const Eigen::MatrixBase<DerivedD> & D,
-        T caxis_min,
-        T caxis_max,
+        const Eigen::VectorXd & D,
+        double caxis_min,
+        double caxis_max,
         igl::ColorMapType cmap = igl::COLOR_MAP_TYPE_VIRIDIS);
 
       // Specify mesh rotation
       // Inputs:
       //   r  3 x 3 rotaton matrix
-      template <typename Derivedr>
-      void set_rot(const Eigen::MatrixBase<Derivedr> &r);
+      void set_rot(const Eigen::Matrix3d &r);
 
       // Specify mesh magnification
       // Inputs:
       //   z  magnification ratio
-      template <typename T>
-      void set_zoom(T z);
+      void set_zoom(double z);
 
       // Specify mesh translation
       // Inputs:
       //   tr  translation vector
-      template <typename Derivedtr>
-      void set_translation(const Eigen::MatrixBase<Derivedtr> &tr);
+      void set_translation(const Eigen::Vector3d &tr);
 
       // Specify that color is face based
       // Inputs:
@@ -126,12 +120,6 @@ namespace igl
       // Inputs:
       //    f - orthographic or perspective projection
       void set_orthographic(bool f );
-
-
-      // Render both sides of triangles
-      // Inputs:
-      //    f - double sided
-      void set_double_sided(bool f);
 
       // render full buffer
       // Outputs:
@@ -212,7 +200,6 @@ namespace igl
 
       bool face_based;
       bool uniform_color;
-      bool double_sided ;
 
       // Camera parameters
       float camera_base_zoom;
