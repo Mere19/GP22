@@ -7,11 +7,11 @@ Legi-Nr: 'Your legi number'
 
 Email: 'Your email address'
 
-Follow the [instructions](#workflow) to updated your private repository.
+Carefully follow the instructions below to setup your assignment repository.
 
 ## Assignments Overview
 
-[Assignment 1](assignment1) (Due date: 12.03.2021 10:00)  
+[Assignment 1](assignment1) (Due date: 11.03.2022 10:00)  
 
 ## General Rules and Instructions
 
@@ -36,7 +36,7 @@ On Windows you can download it from:
 [https://cmake.org/download/](https://cmake.org/download/)
 
 ### Cloning the Assignment Repository
-Before you are able to clone your private assignment repository, you need to have a active [Github](https://github.com/) account. Then you can **create your own private online repository** by following this link: https://classroom.github.com/a/-c-axeq2
+Before you are able to clone your private assignment repository, you need to have a active [Github](https://github.com/) account. Then you can **create your own private online repository** by following this link: https://classroom.github.com/a/laZVnKc4
 
 In the next step you need to clone it to your local harddrive
 ```
@@ -56,7 +56,7 @@ git add README.md
 git commit -m "Adjust README.md"
 git push
 ```
-You should now be able to see your name online on your private repository: https://github.com/eth-igl/gp21-'Your_Git_Username'
+You should now be able to see your name online on your private repository: https://github.com/eth-igl/gp22-'Your_Git_Username'
 
 ### Building Each Assignment
 In the assignment repository you will find the different assignment directories 'assignmentX'. For now you only see the first one 'assignment1'. To compile the assignment code we will use the CMake building system.
