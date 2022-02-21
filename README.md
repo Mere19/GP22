@@ -96,14 +96,6 @@ or,
 git pull base main --allow-unrelated-histories
 ```
 
-To pull bug fixes or changes you can do the following steps:
-```
-git pull base main
-rm -r libigl
-git submodule sync
-git submodule update --init --recursive
-```
-
 ### Solution Submission
 In every assignment directory you will find a 'README.md' file in which we will specify the required screenshots and console outputs. You should briefly summarize and report your results and observations, or discuss possible problems. For a quick introduction of the Markdown syntax see: https://guides.github.com/features/mastering-markdown/
 
