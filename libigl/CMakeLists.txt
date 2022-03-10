@@ -20,7 +20,7 @@ else()
 endif()
 
 # Build tests and tutorials
-option(LIBIGL_BUILD_TESTS      "Build libigl unit test"        ${LIBIGL_TOPLEVEL_PROJECT})
+option(LIBIGL_BUILD_TESTS      "Build libigl unit test"        OFF)
 option(LIBIGL_BUILD_TUTORIALS  "Build libigl tutorial"         ${LIBIGL_TOPLEVEL_PROJECT})
 option(LIBIGL_EXPORT_TARGETS   "Export libigl CMake targets"   ${LIBIGL_TOPLEVEL_PROJECT})
 
@@ -32,7 +32,7 @@ option(LIBIGL_USE_STATIC_LIBRARY "Use libigl as static library" ON)
 # All dependencies that are downloaded as cmake projects and tested on the auto-builds are ON
 # (by default, all build options are off)
 option(LIBIGL_WITH_COMISO            "Use CoMiso"                   ON)
-option(LIBIGL_WITH_EMBREE            "Use Embree"                   ON)
+option(LIBIGL_WITH_EMBREE            "Use Embree"                   OFF)
 option(LIBIGL_WITH_OPENGL            "Use OpenGL"                   ON)
 option(LIBIGL_WITH_OPENGL_GLFW       "Use GLFW"                     ON)
 option(LIBIGL_WITH_OPENGL_GLFW_IMGUI "Use ImGui"                    ON)
