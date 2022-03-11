@@ -112,6 +112,11 @@ void subdivide_sqrt3(const Eigen::MatrixXd &V,
         int old_v1 = 0;
         int old_v2 = 0;
         int new_v1 = 0;
+
+        if (TT(i, 0) < 0 || TT(i, 1) < 0 || TT(i, 2) < 0) {
+            continue;
+        }
+
         if (Fout(i, 0) < V.rows() and Fout(i, 1) < V.rows()) {
             eid = 0;
             fid = TT(i, eid);

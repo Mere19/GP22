@@ -73,11 +73,9 @@ In comparison to per-vertex shading, the edges of the per-corner shading is shar
 
 | model name | original shape                                               | subdivided shape                                             |
 | :--------: | ------------------------------------------------------------ |------------------------------------------------------------- | 
-| plane      |<img align="center"  src="./res/placeholder.png" width="300"> |<img align="center"  src="./res/placeholder.png" width="300"> |
+| plane      |<img align="center"  src="./res/Q6_plane_before.png" width="300"> |<img align="center"  src="./res/Q6_plane_after.png" width="300"> |
 | sphere     |<img align="center"  src="./res/Q6_sphere_before.png" width="300"> |<img align="center"  src="./res/Q6_sphere_after.png" width="300"> |
 | bunny      |<img align="center"  src="./res/Q6_bunny_before.png" width="300"> |<img align="center"  src="./res/Q6_bunny_after.png" width="300"> |
 | bumpy_cube |<img align="center"  src="./res/Q6_bumpy_before.png" width="300"> |<img align="center"  src="./res/Q6_bumpy_after.png" width="300"> |
-
-
 
 
