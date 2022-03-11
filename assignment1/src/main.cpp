@@ -1,4 +1,5 @@
 #include <iostream>
+#include <math.h>
 #include <igl/readOFF.h>
 #include <igl/opengl/glfw/Viewer.h>
 #include <igl/opengl/glfw/imgui/ImGuiMenu.h>
@@ -12,9 +13,12 @@
 #include <igl/per_corner_normals.h>
 #include <igl/facet_components.h>
 #include <igl/jet.h>
+#include <igl/triangle_triangle_adjacency.h>
 
 using namespace std;
 using Viewer = igl::opengl::glfw::Viewer;
+
+#define PI 3.14159265
 
 // Vertex array, #V x3
 Eigen::MatrixXd V;
@@ -43,19 +47,11 @@ void subdivide_sqrt3(const Eigen::MatrixXd &V,
         Vout(i, 1) = V(i, 1);
         Vout(i, 2) = V(i, 2);
     }
-    // std::cout << Vout << std::endl;
-    // copy old faces to Fout
-    // for (int i = 0; i < F.rows(); i ++) {
-    //     Fout(i, 0) = F(i, 0);
-    //     Fout(i, 1) = F(i, 1);
-    //     Fout(i, 2) = F(i, 2);
-    // }
-    // std::cout << Fout << std::endl;
 
-    // locate new vertices
     int j = V.rows();
     int k = 0;
     for (int i = 0; i < F.rows(); i ++) {
+        // locate new vertices
         double x = (V(F(i, 0), 0) + V(F(i, 1), 0) + V(F(i, 2), 0)) / 3;
         double y = (V(F(i, 0), 1) + V(F(i, 1), 1) + V(F(i, 2), 1)) / 3;
         double z = (V(F(i, 0), 2) + V(F(i, 1), 2) + V(F(i, 2), 2)) / 3;
@@ -66,27 +62,94 @@ void subdivide_sqrt3(const Eigen::MatrixXd &V,
         Vout(j, 2) = z;
         j ++;
 
-        // std::cout << F(i, 0) << " " << F(i, 1) << " " << F(i, 2) << std::endl;
-
         // add new faces to Fout
         Fout(k, 0) = F(i, 0);
         Fout(k, 1) = F(i, 1);
         Fout(k, 2) = j - 1;
         k++;
-        // std::cout << Fout(k - 1, 0) << Fout(k - 1, 1) << Fout(k - 1, 2) << std::endl;
 
         Fout(k, 0) = F(i, 1);
         Fout(k, 1) = F(i, 2);
         Fout(k, 2) = j - 1;
         k++;
-        // std::cout << Fout(k - 1, 0) << Fout(k - 1, 1) << Fout(k - 1, 2) << std::endl;
 
         Fout(k, 0) = F(i, 2);
         Fout(k, 1) = F(i, 0);
         Fout(k, 2) = j - 1;
         k++;
-        // std::cout << Fout(k - 1, 0) << Fout(k - 1, 1) << Fout(k - 1, 2) << std::endl;
+        // std::cout << "flipping edges ..." << std::endl;
+    }
 
+    // // move old vertices
+    // igl::adjacency_list(F, VV);
+    // for (int i = 0; i < VV.size(); i ++) {
+    //     int n = VV[i].size();
+    //     double a_n = (4 - 2 * cos(2 * PI / n)) / 9;
+
+    //     Vout(i, 0) = 0;
+    //     Vout(i, 1) = 0;
+    //     Vout(i, 2) = 0;
+    //     for (int j : VV[i]) {
+    //         Vout(i, 0) += V(j, 0);
+    //         Vout(i, 1) += V(j, 1);
+    //         Vout(i, 2) += V(j, 2);
+    //     }
+    //     Vout(i, 0) *= (a_n / n);
+    //     Vout(i, 1) *= (a_n / n);
+    //     Vout(i, 2) *= (a_n / n);
+    //     Vout(i, 0) += (1 - a_n) * V(i, 0);
+    //     Vout(i, 1) += (1 - a_n) * V(i, 1);
+    //     Vout(i, 2) += (1 - a_n) * V(i, 2);
+    // }
+
+    // flip old edges
+    Eigen::MatrixXd TT(Fout.rows(), 3);
+    Eigen::MatrixXd TTi(Fout.rows(), 3);
+    igl::triangle_triangle_adjacency(Fout, TT, TTi);
+    for (int i = 0; i < Fout.rows(); i ++) {
+        int eid = 0;
+        int fid = 0;
+        int old_v1 = 0;
+        int old_v2 = 0;
+        int new_v1 = 0;
+        if (Fout(i, 0) < V.rows() and Fout(i, 1) < V.rows()) {
+            eid = 0;
+            fid = TT(i, eid);
+            old_v1 = Fout(i, 0);
+            old_v2 = Fout(i, 1);
+            new_v1 = Fout(i, 2);
+        } else if (Fout(i, 1) < V.rows() and Fout(i, 2) < V.rows()) {
+            eid = 1;
+            fid = TT(i, eid);
+            old_v1 = Fout(i, 1);
+            old_v2 = Fout(i, 2);
+            new_v1 = Fout(i, 0);
+        } else if (Fout(i, 2) < V.rows() and Fout(i, 0) < V.rows()) {
+            eid = 2;
+            fid = TT(i, eid);
+            old_v1 = Fout(i, 2);
+            old_v2 = Fout(i, 0);
+            new_v1 = Fout(i, 1);
+        } else {
+            continue;
+        }
+
+        int feid = TTi(i, eid);
+        int new_v2 = 0;
+        if (feid == 0) {
+            new_v2 = Fout(fid, 2);
+        } else if (feid == 1) {
+            new_v2 = Fout(fid, 0);
+        } else {
+            new_v2 = Fout(fid, 1);
+        }
+        
+        Fout(i, 0) = old_v1;
+        Fout(i, 1) = new_v2;
+        Fout(i, 2) = new_v1;
+        Fout(fid, 0) = old_v2;
+        Fout(fid, 1) = new_v1;
+        Fout(fid, 2) = new_v2;
     }
 }
 
@@ -218,7 +281,7 @@ int main(int argc, char *argv[]) {
 	
     load_mesh(viewer,filename,V,F);
 
-    callback_key_down(viewer, '2', 0);
+    // callback_key_down(viewer, '2', 0);
 
     // Attach a menu plugin
     igl::opengl::glfw::imgui::ImGuiMenu menu;
