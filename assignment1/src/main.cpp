@@ -39,18 +39,22 @@ void subdivide_sqrt3(const Eigen::MatrixXd &V,
 					 Eigen::MatrixXi &Fout){
     // copy old vertices to Vout
     for (int i = 0; i < V.rows(); i ++) {
-        Vout(i) = V(i);
+        Vout(i, 0) = V(i, 0);
+        Vout(i, 1) = V(i, 1);
+        Vout(i, 2) = V(i, 2);
     }
-    std::cout << Vout << std::endl;
+    // std::cout << Vout << std::endl;
     // copy old faces to Fout
-    for (int i = 0; i < F.rows(); i ++) {
-        Fout(i) = F(i);
-    }
-    std::cout << Fout << std::endl;
+    // for (int i = 0; i < F.rows(); i ++) {
+    //     Fout(i, 0) = F(i, 0);
+    //     Fout(i, 1) = F(i, 1);
+    //     Fout(i, 2) = F(i, 2);
+    // }
+    // std::cout << Fout << std::endl;
 
     // locate new vertices
     int j = V.rows();
-    int k = F.rows();
+    int k = 0;
     for (int i = 0; i < F.rows(); i ++) {
         double x = (V(F(i, 0), 0) + V(F(i, 1), 0) + V(F(i, 2), 0)) / 3;
         double y = (V(F(i, 0), 1) + V(F(i, 1), 1) + V(F(i, 2), 1)) / 3;
@@ -60,26 +64,28 @@ void subdivide_sqrt3(const Eigen::MatrixXd &V,
         Vout(j, 0) = x;
         Vout(j, 1) = y;
         Vout(j, 2) = z;
-        std::cout << Vout(j) << std::endl;
         j ++;
 
-        std::cout << F(i, 0) << " " << F(i, 1) << " " << F(i, 2) << std::endl;
+        // std::cout << F(i, 0) << " " << F(i, 1) << " " << F(i, 2) << std::endl;
 
         // add new faces to Fout
         Fout(k, 0) = F(i, 0);
         Fout(k, 1) = F(i, 1);
-        Fout(k++, 2) = j - 1;
-        std::cout << Fout(k - 1, 0) << Fout(k - 1, 1) << Fout(k - 1, 2) << std::endl;
+        Fout(k, 2) = j - 1;
+        k++;
+        // std::cout << Fout(k - 1, 0) << Fout(k - 1, 1) << Fout(k - 1, 2) << std::endl;
 
         Fout(k, 0) = F(i, 1);
         Fout(k, 1) = F(i, 2);
-        Fout(k++, 2) = j - 1;
-        std::cout << Fout(k - 1, 0) << Fout(k - 1, 1) << Fout(k - 1, 2) << std::endl;
+        Fout(k, 2) = j - 1;
+        k++;
+        // std::cout << Fout(k - 1, 0) << Fout(k - 1, 1) << Fout(k - 1, 2) << std::endl;
 
         Fout(k, 0) = F(i, 2);
         Fout(k, 1) = F(i, 0);
-        Fout(k++, 2) = j - 1;
-        std::cout << Fout(k - 1, 0) << Fout(k - 1, 1) << Fout(k - 1, 2) << std::endl;
+        Fout(k, 2) = j - 1;
+        k++;
+        // std::cout << Fout(k - 1, 0) << Fout(k - 1, 1) << Fout(k - 1, 2) << std::endl;
 
     }
 }
