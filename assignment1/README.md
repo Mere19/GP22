@@ -1,7 +1,7 @@
 # Assignment 1
-Name: 'Your real name'
+Name: 'Di Zhuang'
 
-Legi-Nr: 'Your legi number'
+Legi-Nr: '21958772'
 
 
 ## Required results
