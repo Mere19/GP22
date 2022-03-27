@@ -6,9 +6,17 @@
 /*** insert any necessary libigl headers here ***/
 #include <igl/per_face_normals.h>
 #include <igl/copyleft/marching_cubes.h>
+#include <igl/bounding_box_diagonal.h>
+
+#include <math.h>
+#include <sys/time.h>
 
 using namespace std;
 using Viewer = igl::opengl::glfw::Viewer;
+
+// for timing
+struct timeval startTime;
+struct timeval endTime;
 
 // Input: imported points, #P x3
 Eigen::MatrixXd P;
@@ -56,6 +64,11 @@ Eigen::MatrixXi F;
 // Output: face normals of the reconstructed mesh, #F x3
 Eigen::MatrixXd FN;
 
+// initialization for spatial index
+double unit;
+int minX, minY, minZ, maxX, maxY, maxZ;
+std::vector<std::vector<std::vector<std::vector<int>>>> gridToVertices;
+
 // Functions
 void createGrid();
 void evaluateImplicitFunc();
@@ -87,9 +100,9 @@ void createGrid()
     Eigen::RowVector3d dim = bb_max - bb_min;
 
     // Grid spacing
-    const double dx = dim[0] / (double)(resolution - 1);
-    const double dy = dim[1] / (double)(resolution - 1);
-    const double dz = dim[2] / (double)(resolution - 1);
+    const double dx = (dim[0] + 100) / (double)(resolution - 1);
+    const double dy = (dim[1] + 100) / (double)(resolution - 1);
+    const double dz = (dim[2] + 100) / (double)(resolution - 1);
     // 3D positions of the grid points -- see slides or marching_cubes.h for ordering
     grid_points.resize(resolution * resolution * resolution, 3);
     // Create each gridpoint
@@ -114,19 +127,23 @@ void createGrid()
 // sphere.
 // Replace this with your own function for evaluating the implicit function
 // values at the grid points using MLS
+double wendlandWeight(double r, double h) {
+    return pow(1 - r / h, 4) * (4 * r / h + 1);
+}
+
 void evaluateImplicitFunc()
 {
-    // Sphere center
+    // dimension of the grid
     auto bb_min = grid_points.colwise().minCoeff().eval();
     auto bb_max = grid_points.colwise().maxCoeff().eval();
-    Eigen::RowVector3d center = 0.5 * (bb_min + bb_max);
+    
+    // wendland radius
+    double wendlandRadius = 0.3 * (bb_max - bb_min).norm();
 
-    double radius = 0.5 * (bb_max - bb_min).minCoeff();
-
-    // Scalar values of the grid points (the implicit function values)
+    // scalar values of the grid points (the implicit function values)
     grid_values.resize(resolution * resolution * resolution);
 
-    // Evaluate sphere's signed distance function at each gridpoint.
+    // evaluate sphere's signed distance function at each gridpoint.
     for (unsigned int x = 0; x < resolution; ++x)
     {
         for (unsigned int y = 0; y < resolution; ++y)
@@ -135,9 +152,98 @@ void evaluateImplicitFunc()
             {
                 // Linear index of the point at (x,y,z)
                 int index = x + resolution * (y + resolution * z);
+                // coordinates of the point at (x, y, z)
+                Eigen::RowVector3d pi = grid_points.row(index);
+                double xi = pi(0);
+                double yi = pi(1);
+                double zi = pi(2);
+                // spatial index of the point at (x, y, z)
+                int xIdx = floor(xi / unit) - minX;
+                int yIdx = floor(yi / unit) - minY;
+                int zIdx = floor(zi / unit) - minZ;
+                // min spatial index given wendlandRadius
+                int localMinX = floor((xi - wendlandRadius) / unit) - minX;
+                int localMinY = floor((yi - wendlandRadius) / unit) - minY;
+                int localMinZ = floor((zi - wendlandRadius) / unit) - minZ;
+                // max spatial index given wendlandRadius
+                int localMaxX = ceil((xi + wendlandRadius) / unit) - minX;
+                int localMaxY = ceil((yi + wendlandRadius) / unit) - minY;
+                int localMaxZ = ceil((zi + wendlandRadius) / unit) - minZ;
 
-                // Value at (x,y,z) = implicit function for the sphere
-                grid_values[index] = (grid_points.row(index) - center).norm() - radius;
+                // find all points within wendlandRadius
+                std::vector<int> neighbours;
+                for (int localX = max(0, localMinX); localX <= min(maxX - minX, localMaxX); localX ++) {
+                    for (int localY = max(0, localMinY); localY <= min(maxY - minY, localMaxY); localY ++) {
+                        for (int localZ = max(0, localMinZ); localZ <= min(maxZ - minZ, localMaxZ); localZ ++) {
+                            for (int j : gridToVertices[localX][localY][localZ]) {
+                                // check if the point is within the radius
+                                Eigen::RowVector3d pj = constrained_points.row(j);
+                                double dist = (pi - pj).norm();
+                                if (dist <= wendlandRadius) {
+                                    neighbours.push_back(j);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // if no neighbours, set value to a large one
+                if (neighbours.size() == 0) {
+                    grid_values[index] = 100;
+                    continue;
+                }
+
+                Eigen::MatrixXd W = Eigen::MatrixXd::Zero(neighbours.size(), neighbours.size());
+                Eigen::MatrixXd B = Eigen::MatrixXd::Zero(neighbours.size(), 10);
+                Eigen::VectorXd f = Eigen::VectorXd::Zero(neighbours.size(), 1);
+                // for all neighbouring points, add one constraint
+                for (int k = 0; k < neighbours.size(); k ++) {
+                    int j = neighbours[k];
+
+                    // get neighbour coordinates
+                    Eigen::RowVector3d pj = constrained_points.row(j);
+                    double xj = pj[0];
+                    double yj = pj[1];
+                    double zj = pj[2];
+                    double dist = (pi - pj).norm();
+                    
+                    // compute wendland weight wj
+                    double wj = wendlandWeight(dist, wendlandRadius);
+                    if (wj == 0) {
+                        continue;
+                    }
+                    W(k, k) = wj;
+                    // compute b(pj)
+                    B.row(k)[0] = 1;
+                    B.row(k)[1] =  xj;
+                    B.row(k)[2] = yj;
+                    B.row(k)[3] = zj;
+                    B.row(k)[4] =  xj * yj;
+                    B.row(k)[5] = xj * zj;
+                    B.row(k)[6] = yj* zj;
+                    B.row(k)[7] = xj * xj;
+                    B.row(k)[8] = yj * yj;
+                    B.row(k)[9] = zj * zj;
+                    // compute implicit function value fj
+                    f[k] = constrained_values[j];
+                }
+
+                // solve least-square problem
+                Eigen::VectorXd c = (W * B).colPivHouseholderQr().solve(W * f);
+                // evaluate implicit function value at pi
+                Eigen::VectorXd bi = Eigen::VectorXd(10);
+                bi[0] = 1;
+                bi[1] =  xi;
+                bi[2] = yi;
+                bi[3] = zi;
+                bi[4] =  xi * yi;
+                bi[5] = xi * zi;
+                bi[6] = yi * zi;
+                bi[7] = xi * xi;
+                bi[8] = yi * yi;
+                bi[9] = zi * zi;
+                // cout << "bi: " << bi << endl;
+                grid_values[index] = (bi.transpose() * c)[0];
             }
         }
     }
@@ -193,6 +299,41 @@ void pcaNormal()
     NP = -N; // to be replaced with your code
 }
 
+void load_grid_boundaries() {
+    // get boundary of the grids
+    auto bb_min = P.colwise().minCoeff().eval();
+    auto bb_max = P.colwise().maxCoeff().eval();
+    // compute diagonal length
+    unit = 0.01 * (bb_max - bb_min).norm();
+}
+
+void create_spatial_index(double unit) {
+    // get boundary of the grids
+    auto bb_min = P.colwise().minCoeff().eval();
+    auto bb_max = P.colwise().maxCoeff().eval();
+    // spatial index boundaries given resolution
+    minX = floor(bb_min(0) / unit);
+    minY = floor(bb_min(1) / unit);
+    minZ = floor(bb_min(2) / unit);
+    maxX = floor(bb_max(0) / unit);
+    maxY = floor(bb_max(1) / unit);
+    maxZ = floor(bb_max(2) / unit);
+
+    // initialize grid_to_vertices map
+    gridToVertices.resize(maxX - minX + 1, std::vector<std::vector<std::vector<int>>>(maxY - minY + 1, std::vector<std::vector<int>>(maxZ - minZ + 1)));
+
+    // index the vertices
+    for (int i = 0; i < P.rows(); i ++) {
+        double x = P(i, 0);
+        double y = P(i, 1);
+        double z = P(i, 2);
+        int xIdx = floor(x / unit) - minX;
+        int yIdx = floor(y / unit) - minY;
+        int zIdx = floor(z / unit) - minZ;
+        gridToVertices[xIdx][yIdx][zIdx].push_back(i);
+    }
+}
+
 bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
 {
     if (key == '1')
@@ -200,17 +341,196 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
         // Show imported points
         viewer.data().clear();
         viewer.core().align_camera_center(P);
-        viewer.data().point_size = 11;
+        viewer.data().point_size = 7;
         viewer.data().add_points(P, Eigen::RowVector3d(0, 0, 0));
     }
 
     if (key == '2')
     {
+        load_grid_boundaries();
+        create_spatial_index(unit);
+        gettimeofday(&startTime, NULL);
+        // cout << "notenotenote " << endl;
+
         // Show all constraints
         viewer.data().clear();
         viewer.core().align_camera_center(P);
+
+        // initialize constrained points
+        constrained_points.resize(3 * P.rows(), 3);
+        constrained_values.resize(3 * P.rows());
+        Eigen::MatrixXd constrained_points_colors(3 * P.rows(), 3);
+
         // Add your code for computing auxiliary constraint points here
+        for (int i = 0; i < P.rows(); i ++) {
+            // load data
+            double x = P(i, 0);
+            double y = P(i, 1);
+            double z = P(i, 2);
+            // add a corresponding constraint
+            constrained_points(3*i, 0) = x;
+            constrained_points(3*i, 1) = y;
+            constrained_points(3*i, 2) = z;
+            constrained_values(3*i) = 0;
+            constrained_points_colors(3*i, 0) = 0;
+            constrained_points_colors(3*i, 1) = 0;
+            constrained_points_colors(3*i, 2) = 0;
+
+            // compute the spatial of the vertex
+            int xIdx = floor(x / unit) - minX;
+            int yIdx = floor(y / unit) - minY;
+            int zIdx = floor(z / unit) - minZ;
+            int xStartIdx = max(0, xIdx - 1);
+            int xEndIdx = min(maxX - minX, xIdx + 1);
+            int yStartIdx = max(0, yIdx - 1);
+            int yEndIdx = min(maxY - minY, yIdx + 1);
+            int zStartIdx = max(0, zIdx - 1);
+            int zEndIdx = min(maxZ - minZ, zIdx + 1);
+
+            // load normal
+            double normalX = N(i, 0);
+            double normalY = N(i, 1);
+            double normalZ = N(i, 2);
+
+            double epsilon = unit;
+            // compute +epsilon
+            double xDist = epsilon * normalX;
+            double epsilonPlusX = x + xDist;
+            double yDist = epsilon * normalY;
+            double epsilonPlusY = y + yDist;
+            double zDist = epsilon * normalZ;
+            double epsilonPlusZ = z + zDist;
+
+            // check that p is the closest point to +epsilon
+            int closestPt = i;
+            double minDistSqr = pow(x - epsilonPlusX, 2) + pow(y - epsilonPlusY, 2) + pow(z - epsilonPlusZ, 2);
+            int j = 0;
+            // cout << "before first while" << endl;
+            while (true) {
+                // // with spatial index
+                // for (int l = xStartIdx; l <= xEndIdx; l ++) {
+                //     for (int m = yStartIdx; m <= yEndIdx; m ++) {
+                //         for (int n = zStartIdx; n <= zEndIdx; n ++) {
+                //             for (int j : gridToVertices[l][m][n]) {
+                //                 double tempX = P(j, 0);
+                //                 double tempY = P(j, 1);
+                //                 double tempZ = P(j, 2);
+                //                 double tempDistSqr = pow(tempX - epsilonPlusX, 2) + pow(tempY - epsilonPlusY, 2) + pow(tempZ - epsilonPlusZ, 2);
+                //                 if (tempDistSqr < minDistSqr) {
+                //                     closestPt = j;
+                //                 }
+                //             }
+                //         }
+                //     }
+                // }
+                // without spatial index
+                for (j = 0; j < P.rows(); j ++) {
+                    double tempX = P(j, 0);
+                    double tempY = P(j, 1);
+                    double tempZ = P(j, 2);
+                    double tempDistSqr = pow(tempX - epsilonPlusX, 2) + pow(tempY - epsilonPlusY, 2) + pow(tempZ - epsilonPlusZ, 2);
+                    if (tempDistSqr < minDistSqr) {
+                        closestPt = j;
+                    }
+                }
+
+                if (closestPt == i) {
+                    break;
+                } else {
+                    // halve epsilon
+                    epsilon = epsilon / 2.0;
+                    // recompute +epsilon
+                    xDist = epsilon * normalX;
+                    epsilonPlusX = x + xDist;
+                    yDist = epsilon * normalY;
+                    epsilonPlusY = y + yDist;
+                    zDist = epsilon * normalZ;
+                    epsilonPlusZ = z + zDist;
+                    minDistSqr = pow(xDist, 2) + pow(yDist, 2) + pow(zDist, 2);
+                }
+            }
+            // cout << "end of first while" << endl;
+            // add +epsilon point to constrained_points
+            constrained_points(3*i+1, 0) = epsilonPlusX;
+            constrained_points(3*i+1, 1) = epsilonPlusY;
+            constrained_points(3*i+1, 2) = epsilonPlusZ;
+            constrained_values(3*i+1) = epsilon;
+            constrained_points_colors(3*i+1, 0) = 255;
+            constrained_points_colors(3*i+1, 1) = 0;
+            constrained_points_colors(3*i+1, 2) = 0;
+            
+            epsilon = unit;
+            // compute -epsilon
+            xDist = epsilon * normalX;
+            yDist = epsilon * normalY;
+            zDist = epsilon * normalZ;
+            double epsilonMinusX = x - xDist;
+            double epsilonMinusY = y - yDist;
+            double epsilonMinusZ = z - zDist;
+            // check that p is the closest point to -epsilon
+            closestPt = i;
+            minDistSqr = pow(xDist, 2) + pow(yDist, 2) + pow(zDist, 2);
+            // cout << "before second while" << endl;
+            while (true) {
+                // // with spatial index
+                // for (int l = xStartIdx; l <= xEndIdx; l ++) {
+                //     for (int m = yStartIdx; m <= yEndIdx; m ++) {
+                //         for (int n = zStartIdx; n <= zEndIdx; n ++) {
+                //             for (int j : gridToVertices[l][m][n]) {
+                //                 double tempX = P(j, 0);
+                //                 double tempY = P(j, 1);
+                //                 double tempZ = P(j, 2);
+                //                 double tempDistSqr = pow(tempX - epsilonMinusX, 2) + pow(tempY - epsilonMinusY, 2) + pow(tempZ - epsilonMinusZ, 2);
+                //                 if (tempDistSqr < minDistSqr) {
+                //                     closestPt = j;
+                //                 }
+                //             }
+                //         }
+                //     }
+                // }
+                // without spatial index
+                for (j = 0; j < P.rows(); j ++) {
+                    double tempX = P(j, 0);
+                    double tempY = P(j, 1);
+                    double tempZ = P(j, 2);
+                    double tempDistSqr = pow(tempX - epsilonMinusX, 2) + pow(tempY - epsilonMinusY, 2) + pow(tempZ - epsilonMinusZ, 2);
+                    if (tempDistSqr < minDistSqr) {
+                        closestPt = j;
+                    }
+                }
+
+                if (closestPt == i) {
+                    break;
+                } else {
+                    // halve epsilon
+                    epsilon = epsilon / 2.0;
+                    // recompute -epsilon
+                    xDist = epsilon * normalX;
+                    yDist = epsilon * normalY;
+                    zDist = epsilon * normalZ;
+                    epsilonMinusX = x - xDist;
+                    epsilonMinusY = y - yDist;
+                    epsilonMinusZ = z - zDist;
+                    minDistSqr = pow(xDist, 2) + pow(yDist, 2) + pow(zDist, 2);
+                }
+            }
+            // cout << "end of second while" << endl;
+            // add -epsilon to constrained_points
+            constrained_points(3*i+2, 0) = epsilonMinusX;
+            constrained_points(3*i+2, 1) = epsilonMinusY;
+            constrained_points(3*i+2, 2) = epsilonMinusZ;
+            constrained_values(3*i+2) = -epsilon;
+            constrained_points_colors(3*i+2, 0) = 0;
+            constrained_points_colors(3*i+2, 1) = 255;
+            constrained_points_colors(3*i+2, 2) = 0;
+        }
+
         // Add code for displaying all points, as above
+        viewer.data().point_size = 4;
+        viewer.data().add_points(constrained_points, constrained_points_colors);
+
+        gettimeofday(&endTime, NULL);
+        cout << "running time: " << (long) endTime.tv_sec - startTime.tv_sec << " milliseconds" << endl;
     }
 
     if (key == '3')
@@ -219,16 +539,17 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
         viewer.data().clear();
         viewer.core().align_camera_center(P);
         // Add code for creating a grid
-        // Add your code for evaluating the implicit function at the grid points
-        // Add code for displaying points and lines
-        // You can use the following example:
-
-        /*** begin: sphere example, replace (at least partially) with your code ***/
         // Make grid
         createGrid();
 
+        // Add your code for evaluating the implicit function at the grid points
         // Evaluate implicit function
         evaluateImplicitFunc();
+
+        // Add code for displaying points and lines
+
+        // You can use the following example:
+        /*** begin: sphere example, replace (at least partially) with your code ***/
 
         // get grid lines
         getLines();
@@ -251,6 +572,8 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
                     grid_colors(i, 0) = 1;
             }
         }
+
+        cout << grid_values << endl;
 
         // Draw lines and points
         viewer.data().point_size = 8;
