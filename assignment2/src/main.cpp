@@ -34,10 +34,10 @@ Eigen::MatrixXd constrained_points;
 Eigen::VectorXd constrained_values;
 
 // Parameter: degree of the polynomial
-int polyDegree = 0;
+int polyDegree = 1;
 
 // Parameter: Wendland weight function radius (make this relative to the size of the mesh)
-double wendlandRadius;
+double wendlandRadius = 80;
 
 // Parameter: grid resolution (resolution - 1 is multiple of 4)
 int resolution = 21;
@@ -70,6 +70,9 @@ double dimUnitX, dimUnitY, dimUnitZ;
 int minX, minY, minZ, maxX, maxY, maxZ;
 std::vector<std::vector<std::vector<std::vector<int>>>> gridToVertices;
 
+// epsilon
+double diagonal, global_epsilon;
+
 // Functions
 void createGrid();
 void evaluateImplicitFunc();
@@ -98,7 +101,8 @@ void createGrid()
     bb_max = P.colwise().maxCoeff();
 
     // Bounding box dimensions
-    Eigen::RowVector3d dim = bb_max - bb_min;
+    Eigen::RowVector3d dim = (bb_max - bb_min) * 1.25;
+    Eigen::RowVector3d extraSpace = dim - (bb_max - bb_min);
 
     // Grid spacing
     const double dx = (dim[0]) / (double)(resolution - 1);
@@ -116,7 +120,7 @@ void createGrid()
                 // Linear index of the point at (x,y,z)
                 int index = x + resolution * (y + resolution * z);
                 // 3D point at (x,y,z)
-                grid_points.row(index) = bb_min + Eigen::RowVector3d(x * dx, y * dy, z * dz);
+                grid_points.row(index) = bb_min - (extraSpace / 2) + Eigen::RowVector3d(x * dx, y * dy, z * dz);
             }
         }
     }
@@ -139,7 +143,8 @@ void evaluateImplicitFunc()
     auto bb_max = grid_points.colwise().maxCoeff().eval();
     
     // wendland radius
-    wendlandRadius = 0.3 * (bb_max - bb_min).norm();
+    wendlandRadius = 0.25 * (bb_max - bb_min).norm();
+    // wendlandRadius = 100;
 
     // scalar values of the grid points (the implicit function values)
     grid_values.resize(resolution * resolution * resolution);
@@ -159,28 +164,21 @@ void evaluateImplicitFunc()
                 double yi = pi(1);
                 double zi = pi(2);
                 // spatial index of the point at (x, y, z)
-                int xIdx = floor((xi - minX) / dimUnitX);
-                int yIdx = floor((yi - minY) / dimUnitY);
-                int zIdx = floor((zi - minZ) / dimUnitZ);
-                // min spatial index given wendlandRadius
-                int localMinX = floor((xi - wendlandRadius - minX) / dimUnitX);
-                int localMinY = floor((yi - wendlandRadius - minY) / dimUnitY);
-                int localMinZ = floor((zi - wendlandRadius - minZ) / dimUnitZ);
-                // max spatial index given wendlandRadius
-                int localMaxX = ceil((xi + wendlandRadius - minX) / dimUnitX);
-                int localMaxY = ceil((yi + wendlandRadius - minY) / dimUnitY);
-                int localMaxZ = ceil((zi + wendlandRadius - minZ) / dimUnitZ);
+                int xIdx = min((int)floor((x - minX) / dimUnitX), resolutionSpatialIndex - 2);
+                int yIdx = min((int)floor((y - minY) / dimUnitY), resolutionSpatialIndex - 2);
+                int zIdx = min((int)floor((z - minZ) / dimUnitZ), resolutionSpatialIndex - 2);
 
                 // find all points within wendlandRadius
                 std::vector<int> neighbours;
-                for (int localX = max(0, localMinX); localX <= min(maxX - minX, localMaxX); localX ++) {
-                    for (int localY = max(0, localMinY); localY <= min(maxY - minY, localMaxY); localY ++) {
-                        for (int localZ = max(0, localMinZ); localZ <= min(maxZ - minZ, localMaxZ); localZ ++) {
+                for (int localX = max(0, xIdx - 1); localX <= min(resolutionSpatialIndex - 2, xIdx + 1); localX ++) {
+                    for (int localY = max(0, yIdx - 1); localY <= min(resolutionSpatialIndex - 2, yIdx + 1); localY ++) {
+                        for (int localZ = max(0, zIdx - 1); localZ <= min(resolutionSpatialIndex - 2, zIdx + 1); localZ ++) {
                             for (int j : gridToVertices[localX][localY][localZ]) {
                                 // check if the point is within the radius
                                 Eigen::RowVector3d pj = constrained_points.row(j);
                                 double dist = (pi - pj).norm();
-                                if (dist <= wendlandRadius) {
+                                double wj = wendlandWeight(dist, wendlandRadius);
+                                if (dist < wendlandRadius && wj > 0.001) {
                                     neighbours.push_back(j);
                                 }
                             }
@@ -188,14 +186,34 @@ void evaluateImplicitFunc()
                     }
                 }
 
+                // for (int j : gridToVertices[xIdx][yIdx][zIdx]) {
+                //     // check if the point is within the radius
+                //     Eigen::RowVector3d pj = constrained_points.row(j);
+                //     double dist = (pi - pj).norm();
+                //     double wj = wendlandWeight(dist, wendlandRadius);
+                //     if (wj > 0) {
+                //         neighbours.push_back(j);
+                //     }
+                // }
+
                 // if no neighbours, set value to a large one
                 if (neighbours.size() == 0) {
                     grid_values[index] = 100;
                     continue;
                 }
 
+                // determine the number of coefficients
+                int numParams = 1;
+                if (polyDegree == 0) {
+                    numParams = 1;
+                } else if (polyDegree == 1) {
+                    numParams = 4;
+                } else if (polyDegree == 2) {
+                    numParams = 10;
+                }
+
                 Eigen::MatrixXd W = Eigen::MatrixXd::Zero(neighbours.size(), neighbours.size());
-                Eigen::MatrixXd B = Eigen::MatrixXd::Zero(neighbours.size(), 10);
+                Eigen::MatrixXd B = Eigen::MatrixXd::Zero(neighbours.size(), numParams);
                 Eigen::VectorXd f = Eigen::VectorXd::Zero(neighbours.size(), 1);
                 // for all neighbouring points, add one constraint
                 for (int k = 0; k < neighbours.size(); k ++) {
@@ -210,21 +228,27 @@ void evaluateImplicitFunc()
                     
                     // compute wendland weight wj
                     double wj = wendlandWeight(dist, wendlandRadius);
-                    if (wj == 0) {
-                        continue;
-                    }
                     W(k, k) = wj;
                     // compute b(pj)
-                    B.row(k)[0] = 1;
-                    B.row(k)[1] =  xj;
-                    B.row(k)[2] = yj;
-                    B.row(k)[3] = zj;
-                    B.row(k)[4] =  xj * yj;
-                    B.row(k)[5] = xj * zj;
-                    B.row(k)[6] = yj* zj;
-                    B.row(k)[7] = xj * xj;
-                    B.row(k)[8] = yj * yj;
-                    B.row(k)[9] = zj * zj;
+                    if (polyDegree == 0) {
+                        B.row(k)[0] = 1;
+                    } else if (polyDegree == 1) {
+                        B.row(k)[0] = 1;
+                        B.row(k)[1] =  xj;
+                        B.row(k)[2] = yj;
+                        B.row(k)[3] = zj;
+                    } else if (polyDegree == 2) {
+                        B.row(k)[0] = 1;
+                        B.row(k)[1] =  xj;
+                        B.row(k)[2] = yj;
+                        B.row(k)[3] = zj;
+                        B.row(k)[4] =  xj * yj;
+                        B.row(k)[5] = xj * zj;
+                        B.row(k)[6] = yj* zj;
+                        B.row(k)[7] = xj * xj;
+                        B.row(k)[8] = yj * yj;
+                        B.row(k)[9] = zj * zj;
+                    }
                     // compute implicit function value fj
                     f[k] = constrained_values[j];
                 }
@@ -233,16 +257,25 @@ void evaluateImplicitFunc()
                 Eigen::VectorXd c = (W * B).colPivHouseholderQr().solve(W * f);
                 // evaluate implicit function value at pi
                 Eigen::VectorXd bi = Eigen::VectorXd(10);
-                bi[0] = 1;
-                bi[1] =  xi;
-                bi[2] = yi;
-                bi[3] = zi;
-                bi[4] =  xi * yi;
-                bi[5] = xi * zi;
-                bi[6] = yi * zi;
-                bi[7] = xi * xi;
-                bi[8] = yi * yi;
-                bi[9] = zi * zi;
+                if (polyDegree == 0) {
+                    bi[0] = 1;
+                } else if (polyDegree == 1) {
+                    bi[0] = 1;
+                    bi[1] =  xi;
+                    bi[2] = yi;
+                    bi[3] = zi;
+                } else if (polyDegree == 2) {
+                    bi[0] = 1;
+                    bi[1] =  xi;
+                    bi[2] = yi;
+                    bi[3] = zi;
+                    bi[4] =  xi * yi;
+                    bi[5] = xi * zi;
+                    bi[6] = yi * zi;
+                    bi[7] = xi * xi;
+                    bi[8] = yi * yi;
+                    bi[9] = zi * zi;
+                }
                 grid_values[index] = (bi.transpose() * c)[0];
             }
         }
@@ -307,6 +340,10 @@ void create_spatial_index() {
     auto bb_min = P.colwise().minCoeff().eval();
     auto bb_max = P.colwise().maxCoeff().eval();
 
+    // initialize epsilon
+    diagonal = (bb_max - bb_min).norm();
+    global_epsilon = 0.01 * diagonal;
+
     // compute dimension of a single grid
     dimUnitX = (bb_max[0] - bb_min[0]) / (double) (resolutionSpatialIndex - 1);
     dimUnitY = (bb_max[1] - bb_min[1]) / (double) (resolutionSpatialIndex - 1);
@@ -350,7 +387,6 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
         // load_grid_boundaries();
         create_spatial_index();
         gettimeofday(&startTime, NULL);
-        // cout << "note note note " << endl;
 
         // Show all constraints
         viewer.data().clear();
@@ -370,14 +406,7 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
             double z = P(i, 2);
             // add a corresponding constraint
             constrained_points.row(3*i) = P.row(i);
-            // constrained_points(3*i, 0) = x;
-            // constrained_points(3*i, 1) = y;
-            // constrained_points(3*i, 2) = z;
             constrained_values(3*i) = 0;
-            // constrained_points_colors.row(3*i).setZero();
-            // constrained_points_colors(3*i, 0) = 0;
-            // constrained_points_colors(3*i, 1) = 0;
-            // constrained_points_colors(3*i, 2) = 0;
 
             // compute the spatial index of the vertex
             int xIdx = floor((x - minX) / dimUnitX);
@@ -390,35 +419,19 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
             int zStartIdx = max(0, zIdx - 1);
             int zEndIdx = min(resolutionSpatialIndex - 2, zIdx + 1);
 
-            // load normal
-            // double normalX = N(i, 0);
-            // double normalY = N(i, 1);
-            // double normalZ = N(i, 2);
-
-            double epsilon = 7;
+            double epsilon = global_epsilon;
             // compute +epsilon
             Eigen::RowVector3d epsilonPlus = P.row(i) + epsilon * N.row(i);
-            // double xDist = epsilon * normalX;
-            // double epsilonPlusX = x + xDist;
-            // double yDist = epsilon * normalY;
-            // double epsilonPlusY = y + yDist;
-            // double zDist = epsilon * normalZ;
-            // double epsilonPlusZ = z + zDist;
 
             // check that p is the closest point to +epsilon
             int closestPt = i;
             double minDist = (epsilon * N.row(i)).norm();
-            // int j = 0;
-            // cout << "before first while" << endl;
             while (true) {
                 // with spatial index
                 for (int l = xStartIdx; l <= xEndIdx; l ++) {
                     for (int m = yStartIdx; m <= yEndIdx; m ++) {
                         for (int n = zStartIdx; n <= zEndIdx; n ++) {
                             for (int j : gridToVertices[l][m][n]) {
-                                // double tempX = P(j, 0);
-                                // double tempY = P(j, 1);
-                                // double tempZ = P(j, 2);
                                 double tempDist = (P.row(j) - epsilonPlus).norm();
                                 if (tempDist < minDist) {
                                     closestPt = j;
@@ -445,35 +458,18 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
                     epsilon = epsilon / 2.0;
                     // recompute +epsilon
                     epsilonPlus = P.row(i) + epsilon * N.row(i);
-                    // xDist = epsilon * normalX;
-                    // epsilonPlusX = x + xDist;
-                    // yDist = epsilon * normalY;
-                    // epsilonPlusY = y + yDist;
-                    // zDist = epsilon * normalZ;
-                    // epsilonPlusZ = z + zDist;
                     minDist = (epsilon * N.row(i)).norm();
                 }
             }
 
             // add +epsilon point to constrained_points
             constrained_points.row(3*i+1) = epsilonPlus;
-            // constrained_points(3*i+1, 0) = epsilonPlusX;
-            // constrained_points(3*i+1, 1) = epsilonPlusY;
-            // constrained_points(3*i+1, 2) = epsilonPlusZ;
             constrained_values(3*i+1) = epsilon;
             constrained_points_colors(3*i+1, 0) = 255;
-            // constrained_points_colors(3*i+1, 1) = 0;
-            // constrained_points_colors(3*i+1, 2) = 0;
             
-            epsilon = 7;
+            epsilon = global_epsilon;
             // compute -epsilon
             Eigen::RowVector3d epsilonMinus = P.row(i) - epsilon * N.row(i);
-            // xDist = epsilon * normalX;
-            // yDist = epsilon * normalY;
-            // zDist = epsilon * normalZ;
-            // double epsilonMinusX = x - xDist;
-            // double epsilonMinusY = y - yDist;
-            // double epsilonMinusZ = z - zDist;
             // check that p is the closest point to -epsilon
             closestPt = i;
             minDist = (epsilon * N.row(i)).norm();
@@ -484,9 +480,6 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
                     for (int m = yStartIdx; m <= yEndIdx; m ++) {
                         for (int n = zStartIdx; n <= zEndIdx; n ++) {
                             for (int j : gridToVertices[l][m][n]) {
-                                // double tempX = P(j, 0);
-                                // double tempY = P(j, 1);
-                                // double tempZ = P(j, 2);
                                 double tempDist = (P.row(j) - epsilonMinus).norm();
                                 if (tempDist < minDist) {
                                     closestPt = j;
@@ -513,24 +506,13 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
                     epsilon = epsilon / 2.0;
                     // recompute -epsilon
                     epsilonMinus = P.row(i) - epsilon * N.row(i);
-                    // xDist = epsilon * normalX;
-                    // yDist = epsilon * normalY;
-                    // zDist = epsilon * normalZ;
-                    // epsilonMinusX = x - xDist;
-                    // epsilonMinusY = y - yDist;
-                    // epsilonMinusZ = z - zDist;
                     minDist = (epsilon * N.row(i)).norm();
                 }
             }
             // add -epsilon to constrained_points
             constrained_points.row(3*i+2) = epsilonMinus;
-            // constrained_points(3*i+2, 0) = epsilonMinusX;
-            // constrained_points(3*i+2, 1) = epsilonMinusY;
-            // constrained_points(3*i+2, 2) = epsilonMinusZ;
             constrained_values(3*i+2) = -epsilon;
-            // constrained_points_colors(3*i+2, 0) = 0;
             constrained_points_colors(3*i+2, 1) = 255;
-            // constrained_points_colors(3*i+2, 2) = 0;
         }
 
         // Add code for displaying all points, as above
@@ -546,11 +528,10 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
         // Show grid points with colored nodes and connected with lines
         viewer.data().clear();
         viewer.core().align_camera_center(P);
-        // Add code for creating a grid
+
         // Make grid
         createGrid();
 
-        // Add your code for evaluating the implicit function at the grid points
         // Evaluate implicit function
         evaluateImplicitFunc();
 
