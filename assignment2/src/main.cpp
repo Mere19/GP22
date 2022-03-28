@@ -34,13 +34,13 @@ Eigen::MatrixXd constrained_points;
 Eigen::VectorXd constrained_values;
 
 // Parameter: degree of the polynomial
-int polyDegree = 1;
+int polyDegree = 2;
 
 // Parameter: Wendland weight function radius (make this relative to the size of the mesh)
-double wendlandRadius = 80;
+double wendlandRadius = 100;
 
 // Parameter: grid resolution (resolution - 1 is multiple of 4)
-int resolution = 21;
+int resolution = 30;
 
 // Intermediate result: grid points, at which the imlicit function will be evaluated, #G x3
 Eigen::MatrixXd grid_points;
@@ -65,13 +65,17 @@ Eigen::MatrixXi F;
 Eigen::MatrixXd FN;
 
 // create_spatial_index()
-int resolutionSpatialIndex;
+Eigen::RowVector3d bb_min, bb_max;
 double dimUnitX, dimUnitY, dimUnitZ;
-int minX, minY, minZ, maxX, maxY, maxZ;
+int dimX, dimY, dimZ;
 std::vector<std::vector<std::vector<std::vector<int>>>> gridToVertices;
 
 // epsilon
 double diagonal, global_epsilon;
+
+// expansion factor
+double expansionFactor = 1.25;
+Eigen::RowVector3d dim, extraSpace, halfExtraSpace;
 
 // Functions
 void createGrid();
@@ -138,13 +142,8 @@ double wendlandWeight(double r, double h) {
 
 void evaluateImplicitFunc()
 {
-    // dimension of the grid
-    auto bb_min = grid_points.colwise().minCoeff().eval();
-    auto bb_max = grid_points.colwise().maxCoeff().eval();
-    
     // wendland radius
-    wendlandRadius = 0.25 * (bb_max - bb_min).norm();
-    // wendlandRadius = 100;
+    // wendlandRadius = 0.25 * (bb_max - bb_min).norm();
 
     // scalar values of the grid points (the implicit function values)
     grid_values.resize(resolution * resolution * resolution);
@@ -164,43 +163,39 @@ void evaluateImplicitFunc()
                 double yi = pi(1);
                 double zi = pi(2);
                 // spatial index of the point at (x, y, z)
-                int xIdx = min((int)floor((x - minX) / dimUnitX), resolutionSpatialIndex - 2);
-                int yIdx = min((int)floor((y - minY) / dimUnitY), resolutionSpatialIndex - 2);
-                int zIdx = min((int)floor((z - minZ) / dimUnitZ), resolutionSpatialIndex - 2);
+                int xIdx = floor((xi - bb_min[0] + halfExtraSpace[0]) / dimUnitX);
+                int yIdx = floor((yi - bb_min[1] + halfExtraSpace[1]) / dimUnitY);
+                int zIdx = floor((zi - bb_min[2] + halfExtraSpace[2]) / dimUnitZ);
 
                 // find all points within wendlandRadius
                 std::vector<int> neighbours;
-                for (int localX = max(0, xIdx - 1); localX <= min(resolutionSpatialIndex - 2, xIdx + 1); localX ++) {
-                    for (int localY = max(0, yIdx - 1); localY <= min(resolutionSpatialIndex - 2, yIdx + 1); localY ++) {
-                        for (int localZ = max(0, zIdx - 1); localZ <= min(resolutionSpatialIndex - 2, zIdx + 1); localZ ++) {
+                // with spatial index
+                for (int localX = max(0, xIdx - 1); localX <= min(dimX - 1, xIdx + 1); localX ++) {
+                    for (int localY = max(0, yIdx - 1); localY <= min(dimY - 1, yIdx + 1); localY ++) {
+                        for (int localZ = max(0, zIdx - 1); localZ <= min(dimZ - 1, zIdx + 1); localZ ++) {
                             for (int j : gridToVertices[localX][localY][localZ]) {
                                 // check if the point is within the radius
-                                Eigen::RowVector3d pj = constrained_points.row(j);
+                                Eigen::RowVector3d pj = constrained_points.row(3*j);
                                 double dist = (pi - pj).norm();
                                 double wj = wendlandWeight(dist, wendlandRadius);
-                                if (dist < wendlandRadius && wj > 0.001) {
-                                    neighbours.push_back(j);
+                                if (dist < wendlandRadius) {
+                                    neighbours.push_back(3*j);
+                                    neighbours.push_back(3*j+1);
+                                    neighbours.push_back(3*j+2);
                                 }
                             }
                         }
                     }
                 }
-
-                // for (int j : gridToVertices[xIdx][yIdx][zIdx]) {
-                //     // check if the point is within the radius
+                // without spatial index
+                // for (int j = 0; j < constrained_points.rows(); j ++) {
                 //     Eigen::RowVector3d pj = constrained_points.row(j);
                 //     double dist = (pi - pj).norm();
                 //     double wj = wendlandWeight(dist, wendlandRadius);
-                //     if (wj > 0) {
+                //     if (dist < wendlandRadius) {
                 //         neighbours.push_back(j);
                 //     }
                 // }
-
-                // if no neighbours, set value to a large one
-                if (neighbours.size() == 0) {
-                    grid_values[index] = 100;
-                    continue;
-                }
 
                 // determine the number of coefficients
                 int numParams = 1;
@@ -210,6 +205,12 @@ void evaluateImplicitFunc()
                     numParams = 4;
                 } else if (polyDegree == 2) {
                     numParams = 10;
+                }
+
+                // if no neighbours, set value to a large one
+                if (neighbours.size() < numParams) {
+                    grid_values[index] = 100;
+                    continue;
                 }
 
                 Eigen::MatrixXd W = Eigen::MatrixXd::Zero(neighbours.size(), neighbours.size());
@@ -333,40 +334,26 @@ void pcaNormal()
 }
 
 void create_spatial_index() {
-    // spatial index resolution
-    resolutionSpatialIndex = (resolution - 1) / 4 + 1;
-
-    // get boundaries of the point cloud
-    auto bb_min = P.colwise().minCoeff().eval();
-    auto bb_max = P.colwise().maxCoeff().eval();
-
-    // initialize epsilon
-    diagonal = (bb_max - bb_min).norm();
-    global_epsilon = 0.01 * diagonal;
-
-    // compute dimension of a single grid
-    dimUnitX = (bb_max[0] - bb_min[0]) / (double) (resolutionSpatialIndex - 1);
-    dimUnitY = (bb_max[1] - bb_min[1]) / (double) (resolutionSpatialIndex - 1);
-    dimUnitZ = (bb_max[2] - bb_min[2]) / (double) (resolutionSpatialIndex - 1);
+    // dimension of a single cell
+    dimUnitX = wendlandRadius;
+    dimUnitY = wendlandRadius;
+    dimUnitZ = wendlandRadius;
 
     // spatial index boundaries given resolution
-    minX = bb_min[0];
-    minY = bb_min[1];
-    minZ = bb_min[2];
-    maxX = bb_max[0];
-    maxY = bb_max[1];
-    maxZ = bb_max[2];
+    dimX = ceil((bb_max[0] - bb_min[0] + extraSpace[0]) / dimUnitX);
+    dimY = ceil((bb_max[1] - bb_min[1] + extraSpace[1]) / dimUnitY);
+    dimZ = ceil((bb_max[2] - bb_min[2] + extraSpace[2]) / dimUnitZ);
 
     // initialize grid_to_vertices map
-    gridToVertices.resize((int)resolutionSpatialIndex - 1, std::vector<std::vector<std::vector<int>>>((int)resolutionSpatialIndex - 1, std::vector<std::vector<int>>((int)resolutionSpatialIndex - 1)));
+    gridToVertices.resize(dimX, std::vector<std::vector<std::vector<int>>>(dimY, std::vector<std::vector<int>>(dimZ)));
     // index the vertices
     for (int i = 0; i < P.rows(); i ++) {
         double x = P(i, 0);
         double y = P(i, 1);
         double z = P(i, 2);
-        int xIdx = min((int)floor((x - minX) / dimUnitX), resolutionSpatialIndex - 2);
-        int yIdx = min((int)floor((y - minY) / dimUnitY), resolutionSpatialIndex - 2);
-        int zIdx = min((int)floor((z - minZ) / dimUnitZ), resolutionSpatialIndex - 2);
+        int xIdx = min((int)floor((x - bb_min[0] + halfExtraSpace[0]) / dimUnitX), dimX - 1);
+        int yIdx = min((int)floor((y - bb_min[1] + halfExtraSpace[1]) / dimUnitY), dimY - 1);
+        int zIdx = min((int)floor((z - bb_min[2] + halfExtraSpace[2]) / dimUnitZ), dimZ - 1);
         gridToVertices[xIdx][yIdx][zIdx].push_back(i);
     }
 }
@@ -380,6 +367,19 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
         viewer.core().align_camera_center(P);
         viewer.data().point_size = 7;
         viewer.data().add_points(P, Eigen::RowVector3d(0, 0, 0));
+
+        // initialize boundaries of the point cloud
+        bb_min = P.colwise().minCoeff().eval();
+        bb_max = P.colwise().maxCoeff().eval();
+
+        // initialize diagonal length and epsilon
+        diagonal = (bb_max - bb_min).norm();
+        global_epsilon = 0.01 * diagonal;
+
+        // initialize extra space
+        dim = (bb_max - bb_min) * 1.25;
+        extraSpace = dim - (bb_max - bb_min);
+        halfExtraSpace = 0.5 * extraSpace;
     }
 
     if (key == '2')
@@ -409,15 +409,15 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
             constrained_values(3*i) = 0;
 
             // compute the spatial index of the vertex
-            int xIdx = floor((x - minX) / dimUnitX);
-            int yIdx = floor((y - minY) / dimUnitY);
-            int zIdx = floor((z - minZ) / dimUnitZ);
+            int xIdx = floor((x - bb_min[0] + halfExtraSpace[0]) / dimUnitX);
+            int yIdx = floor((y - bb_min[1] + halfExtraSpace[1]) / dimUnitY);
+            int zIdx = floor((z - bb_min[2] + halfExtraSpace[2]) / dimUnitZ);
             int xStartIdx = max(0, xIdx - 1);
-            int xEndIdx = min(resolutionSpatialIndex - 2, xIdx + 1);
+            int xEndIdx = min(dimX - 1, xIdx + 1);
             int yStartIdx = max(0, yIdx - 1);
-            int yEndIdx = min(resolutionSpatialIndex - 2, yIdx + 1);
+            int yEndIdx = min(dimY - 1, yIdx + 1);
             int zStartIdx = max(0, zIdx - 1);
-            int zEndIdx = min(resolutionSpatialIndex - 2, zIdx + 1);
+            int zEndIdx = min(dimZ - 1, zIdx + 1);
 
             double epsilon = global_epsilon;
             // compute +epsilon
@@ -561,8 +561,6 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
                     grid_colors(i, 0) = 1;
             }
         }
-
-        cout << grid_values << endl;
 
         // Draw lines and points
         viewer.data().point_size = 8;

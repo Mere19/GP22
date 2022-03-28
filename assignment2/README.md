@@ -27,14 +27,14 @@ Edit this 'README.md' file to report all your results. You only need to update t
 ### 1 - Visualization of the 'cat.off' point cloud with constrained points
 | model name  | view 01             | view 02            |
 | :---------: | ------------------- | ------------------ |
-| cat         |<img align="center" src="./res/Q1_pre.png" width="300">| <img align="center"  src="./res/Q1_after.png" width="300"> |
+| cat         |<img align="center" src="./res/Q1_v1.png" width="300">| <img align="center"  src="./res/Q1_v2.png" width="300"> |
 
 The difference between spatial-index method and no-spatial-index method is not obvious for cat.off. Instead, I tested these two methods on a denser point cloud horse.off, with resolution of the grids equal to epsilon. This gives 0.16 seconds for spatial-index method and 4 seconds for non-spatial-index method.
 
 ### 2 - Grid with nodes colored w.r.t. the implicit function (using the non-axis-aligned grid as described in Section 2.3) 
 | model name  | view 01             | view 02            |
 | :---------: | ------------------- | ------------------ |
-| cat         |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
+| cat         |<img align="center" src="./res/Q2_cat_v1.png" width="300">| <img align="center"  src="./res/Q2_cat_v2.png" width="300"> |
 | luigi      |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
 
 ### 3 - Reconstructed surfaces
@@ -42,7 +42,7 @@ The difference between spatial-index method and no-spatial-index method is not o
 
 | sphere                                                     | cat                                                           |
 | :--------------------------------------------------------: |  :----------------------------------------------------------: | 
-|<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
+|<img align="center" src="./res/Q3_sphere.png" width="300">| <img align="center"  src="./res/Q3_cat.png" width="300"> |
 | luigi                                                      | horse                                                         |
 |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
 | hound                                                      |                                                               |
