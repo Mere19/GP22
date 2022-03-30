@@ -34,8 +34,8 @@ The difference between spatial-index method and no-spatial-index method is not o
 ### 2 - Grid with nodes colored w.r.t. the implicit function (using the non-axis-aligned grid as described in Section 2.3) 
 | model name  | view 01             | view 02            |
 | :---------: | ------------------- | ------------------ |
-| cat         |<img align="center" src="./res/Q2_cat_v1.png" width="300">| <img align="center"  src="./res/Q2_cat_v2.png" width="300"> |
-| luigi      |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
+| cat (polyDegree = 0, resolution = 30, wendlandRadius = 100)         |<img align="center" src="./res/Q2_cat_v1.png" width="300">| <img align="center"  src="./res/Q2_cat_v2.png" width="300"> |
+| luigi (polyDegree = 0, resolution = 40, wendlandRadius = 10)      |<img align="center" src="./res/Q2_luigi_v1.png" width="300">| <img align="center"  src="./res/Q2_luigi_v2.png" width="300"> |
 
 ### 3 - Reconstructed surfaces
 **Please also save the reconstructed shape (.off) in the results folder**
@@ -44,9 +44,9 @@ The difference between spatial-index method and no-spatial-index method is not o
 | :--------------------------------------------------------: |  :----------------------------------------------------------: | 
 |<img align="center" src="./res/Q3_sphere.png" width="300">| <img align="center"  src="./res/Q3_cat.png" width="300"> |
 | luigi                                                      | horse                                                         |
-|<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
-| hound                                                      |                                                               |
-|<img align="center" src="./res/placeholder.png" width="300">|                                                               |
+|<img align="center" src="./res/Q3_luigi.png" width="300">| <img align="center"  src="./res/Q3_hors.png" width="300"> |
+| hound                                                     |                                                               |
+|<img align="center" src="./res/Q3_hound.png" width="300">|                                                               |
 
 
 **Please summarize your observations of what happens when you change the following parameters. Please feel free to add screenshots (by creating a separate table) to illustrate your explanation.**
@@ -90,8 +90,8 @@ Please show your answer in screenshot/photos (or link to a PDF). Make sure your 
 ### 6 - Normal-based v.s. point-based reconstruction ("hound.off")
 | method       | view 01             | view 02            | comments           | 
 | :---------:  | ------------------- | ------------------ | ------------------ |
-| point-based  |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> | xxx |
-| normal-based |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> | xxx |
+| point-based  |<img align="center" src="./res/Q5_point_v1.png" width="300">| <img align="center"  src="./res/Q5_point_v2.png" width="300"> | xxx |
+| normal-based |<img align="center" src="./res/Q5_2_v1.png" width="300">| <img align="center"  src="./res/Q5_2_v2.png" width="300"> | xxx |
 
 ### 7 - MLS v.s. Screened Poisson Reconstruction v.s. RIMLS
 
