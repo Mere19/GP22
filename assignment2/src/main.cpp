@@ -35,7 +35,7 @@ Eigen::MatrixXd constrained_points;
 Eigen::VectorXd constrained_values;
 
 // Parameter: degree of the polynomial
-int polyDegree = 1;
+int polyDegree = 0;
 
 // Parameter: Wendland weight function radius (make this relative to the size of the mesh)
 double wendlandRadius = 0.03;
@@ -244,6 +244,7 @@ void evaluateImplicitFunc()
     // scalar values of the grid points (the implicit function values)
     grid_values.resize(resolution * resolution * resolution);
 
+    gettimeofday(&startTime, NULL);
     // evaluate sphere's signed distance function at each gridpoint.
     for (unsigned int x = 0; x < resolution; ++x)
     {
@@ -265,42 +266,42 @@ void evaluateImplicitFunc()
 
                 // find all points within wendlandRadius
                 std::vector<int> neighbours;
-                // with spatial index
-                for (int localX = max(0, xIdx - 1); localX <= min(dimX - 1, xIdx + 1); localX ++) {
-                    for (int localY = max(0, yIdx - 1); localY <= min(dimY - 1, yIdx + 1); localY ++) {
-                        for (int localZ = max(0, zIdx - 1); localZ <= min(dimZ - 1, zIdx + 1); localZ ++) {
-                            for (int j : gridToVertices[localX][localY][localZ]) {
-                                // check if the point is within the radius
-                                Eigen::RowVector3d pj = constrained_points.row(3*j);
-                                double dist = (pi - pj).norm();
-                                if (dist < wendlandRadius) {
-                                    neighbours.push_back(3*j);
-                                }
+                // // with spatial index
+                // for (int localX = max(0, xIdx - 1); localX <= min(dimX - 1, xIdx + 1); localX ++) {
+                //     for (int localY = max(0, yIdx - 1); localY <= min(dimY - 1, yIdx + 1); localY ++) {
+                //         for (int localZ = max(0, zIdx - 1); localZ <= min(dimZ - 1, zIdx + 1); localZ ++) {
+                //             for (int j : gridToVertices[localX][localY][localZ]) {
+                //                 // check if the point is within the radius
+                //                 Eigen::RowVector3d pj = constrained_points.row(3*j);
+                //                 double dist = (pi - pj).norm();
+                //                 if (dist < wendlandRadius) {
+                //                     neighbours.push_back(3*j);
+                //                 }
 
-                                pj = constrained_points.row(3*j+1);
-                                dist = (pi - pj).norm();
-                                if (dist < wendlandRadius) {
-                                    neighbours.push_back(3*j+1);
-                                }
+                //                 pj = constrained_points.row(3*j+1);
+                //                 dist = (pi - pj).norm();
+                //                 if (dist < wendlandRadius) {
+                //                     neighbours.push_back(3*j+1);
+                //                 }
 
-                                pj = constrained_points.row(3*j+2);
-                                dist = (pi - pj).norm();
-                                if (dist < wendlandRadius) {
-                                    neighbours.push_back(3*j+2);
-                                }
-                            }
-                        }
-                    }
-                }
-                // // without spatial index
-                // for (int j = 0; j < constrained_points.rows(); j ++) {
-                //     Eigen::RowVector3d pj = constrained_points.row(j);
-                //     double dist = (pi - pj).norm();
-                //     double wj = wendlandWeight(dist, wendlandRadius);
-                //     if (dist < wendlandRadius) {
-                //         neighbours.push_back(j);
+                //                 pj = constrained_points.row(3*j+2);
+                //                 dist = (pi - pj).norm();
+                //                 if (dist < wendlandRadius) {
+                //                     neighbours.push_back(3*j+2);
+                //                 }
+                //             }
+                //         }
                 //     }
                 // }
+                // without spatial index
+                for (int j = 0; j < constrained_points.rows(); j ++) {
+                    Eigen::RowVector3d pj = constrained_points.row(j);
+                    double dist = (pi - pj).norm();
+                    double wj = wendlandWeight(dist, wendlandRadius);
+                    if (dist < wendlandRadius) {
+                        neighbours.push_back(j);
+                    }
+                }
 
                 // determine the number of coefficients
                 int numParams = 1;
@@ -386,12 +387,15 @@ void evaluateImplicitFunc()
             }
         }
     }
+    gettimeofday(&endTime, NULL);
+    cout << "constraints running time: " << (long) endTime.tv_sec - startTime.tv_sec << " milliseconds" << endl;
 }
 
 void evaluateImplicitFunc_PolygonSoup()
 {
     // scalar values of the grid points (the implicit function values)
     grid_values.resize(resolution * resolution * resolution);
+    grid_values.setZero();
 
     // Replace with your code here, for "key == '5'"
     for (unsigned int x = 0; x < resolution; ++x)
@@ -809,7 +813,7 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
     {
         // load_grid_boundaries();
         create_spatial_index();
-        // gettimeofday(&startTime, NULL);
+        gettimeofday(&startTime, NULL);
 
         // Show all constraints
         viewer.data().clear();
@@ -864,12 +868,9 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
                     }
                 }
                 // // without spatial index
-                // for (j = 0; j < P.rows(); j ++) {
-                //     double tempX = P(j, 0);
-                //     double tempY = P(j, 1);
-                //     double tempZ = P(j, 2);
-                //     double tempDistSqr = pow(tempX - epsilonPlusX, 2) + pow(tempY - epsilonPlusY, 2) + pow(tempZ - epsilonPlusZ, 2);
-                //     if (tempDistSqr < minDistSqr) {
+                // for (int j = 0; j < P.rows(); j ++) {
+                //     double tempDist = (P.row(j) - epsilonPlus).norm();
+                //     if (tempDist < minDist) {
                 //         closestPt = j;
                 //     }
                 // }
@@ -912,12 +913,9 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
                     }
                 }
                 // // without spatial index
-                // for (j = 0; j < P.rows(); j ++) {
-                //     double tempX = P(j, 0);
-                //     double tempY = P(j, 1);
-                //     double tempZ = P(j, 2);
-                //     double tempDistSqr = pow(tempX - epsilonMinusX, 2) + pow(tempY - epsilonMinusY, 2) + pow(tempZ - epsilonMinusZ, 2);
-                //     if (tempDistSqr < minDistSqr) {
+                // for (int j = 0; j < P.rows(); j ++) {
+                //     double tempDist = (P.row(j) - epsilonMinus).norm();
+                //     if (tempDist < minDist) {
                 //         closestPt = j;
                 //     }
                 // }
@@ -942,8 +940,8 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
         viewer.data().point_size = 7;
         viewer.data().add_points(constrained_points, constrained_points_colors);
 
-        // gettimeofday(&endTime, NULL);
-        // cout << "running time: " << (long) endTime.tv_sec - startTime.tv_sec << " milliseconds" << endl;
+        gettimeofday(&endTime, NULL);
+        cout << "MLS running time: " << (long) endTime.tv_usec - startTime.tv_usec << " milliseconds" << endl;
     }
 
     if (key == '3')
