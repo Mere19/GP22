@@ -7,6 +7,7 @@
 #include <igl/per_face_normals.h>
 #include <igl/copyleft/marching_cubes.h>
 #include <igl/bounding_box_diagonal.h>
+#include <igl/writeOFF.h>
 
 #include <math.h>
 #include <sys/time.h>
@@ -34,13 +35,13 @@ Eigen::MatrixXd constrained_points;
 Eigen::VectorXd constrained_values;
 
 // Parameter: degree of the polynomial
-int polyDegree = 0;
+int polyDegree = 1;
 
 // Parameter: Wendland weight function radius (make this relative to the size of the mesh)
-double wendlandRadius = 5;
+double wendlandRadius = 0.03;
 
 // Parameter: grid resolution
-int resolution = 25;
+int resolution = 80;
 
 // Intermediate result: grid points, at which the imlicit function will be evaluated, #G x3
 Eigen::MatrixXd grid_points;
@@ -83,7 +84,9 @@ Eigen::MatrixXd toCanonical;
 Eigen::MatrixXd fromCanonical;
 
 // PCA normal
+std::vector<std::pair<std::pair<int, int>, double>> edgeList;
 Eigen::MatrixXd nnGraph;
+Eigen::MatrixXd nnMinSpanningTree;
 
 // Functions
 void createGrid();
@@ -91,8 +94,9 @@ void evaluateImplicitFunc();
 void evaluateImplicitFunc_PolygonSoup();
 void getLines();
 void buildNNGraph(int k);
+void buildMinSpanningTree();
 void propagateNormalOrientation();
-void pcaNormal();
+void pcaNormal(int k);
 bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers);
 
 // find basis aligned to point cloud
@@ -561,7 +565,7 @@ void getLines()
 double pcaRadius;
 
 // Estimation of the normals via PCA.
-void pcaNormal()
+void pcaNormal(int k)
 {
     // initialization
     NP.resize(P.rows(), 3);
@@ -574,40 +578,32 @@ void pcaNormal()
         double xi = pi(0);
         double yi = pi(1);
         double zi = pi(2);
-        // spatial index of the point at (x, y, z)
-        int xIdx = floor((xi - bb_min[0] + halfExtraSpace[0]) / dimUnitX);
-        int yIdx = floor((yi - bb_min[1] + halfExtraSpace[1]) / dimUnitY);
-        int zIdx = floor((zi - bb_min[2] + halfExtraSpace[2]) / dimUnitZ);
 
-        // find all points within wendlandRadius
-        std::vector<int> neighbourIdx;
-        // with spatial index
-        for (int localX = max(0, xIdx - 1); localX <= min(dimX - 1, xIdx + 1); localX ++) {
-            for (int localY = max(0, yIdx - 1); localY <= min(dimY - 1, yIdx + 1); localY ++) {
-                for (int localZ = max(0, zIdx - 1); localZ <= min(dimZ - 1, zIdx + 1); localZ ++) {
-                    for (int j : gridToVertices[localX][localY][localZ]) {
-                        // check if the point is within the radius
-                        Eigen::RowVector3d pj = P.row(j);
-                        double dist = (pi - pj).norm();
-                        if (dist < wendlandRadius) {
-                            neighbourIdx.push_back(j);
-                        }
-                    }
-                }
+        // without spatial index
+        std::vector<int> neighboursIdx;
+        for (int j = 0; j < P.rows(); j ++) {
+            if (i != j) {
+                neighboursIdx.push_back(j);
             }
         }
 
-        // add all neighbours to a matrix
-        Eigen::MatrixXd neighbours(neighbourIdx.size(), 3);
-        for (int j = 0; j < neighbourIdx.size(); j ++) {
-            neighbours.row(j) = P.row(neighbourIdx[j]);
+        // find the k nearest neighbours
+        Eigen::MatrixXd kNeighbours(k, 3);
+        Eigen::VectorXd neighboursDist = (P.rowwise() - pi).rowwise().norm();
+        sort(neighboursIdx.begin(), neighboursIdx.end(), [neighboursDist](int a, int b){return neighboursDist[a] < neighboursDist[b];});
+        for (int j = 0; j < k; j ++) {
+            // if (i == 0) {
+            //     cout << neighboursDist[neighboursIdx[j]] << endl;
+            // }
+            // add to neighbours
+            kNeighbours.row(j) = P.row(neighboursIdx[j]);
         }
 
         // compute centroid c
-        Eigen::RowVector3d c = neighbours.colwise().mean();
+        Eigen::RowVector3d c = kNeighbours.colwise().mean();
 
         // subtract c from all points
-        Eigen::MatrixXd Y = (neighbours.rowwise() - c).transpose();
+        Eigen::MatrixXd Y = (kNeighbours.rowwise() - c).transpose();
 
         // compute S
         Eigen::MatrixXd S = Y * Y.transpose();
@@ -619,24 +615,30 @@ void pcaNormal()
         Eigen::VectorXd eigenvalues = es.eigenvalues();
 
         // find the eigenvector that corresponds to the smallest eigenvalue
-        double minEigenvalue = eigenvalues.minCoeff();
-        int normalIdx = 0;
-        for (int j = 0; j < eigenvalues.rows(); j ++) {
-            if (eigenvalues[j] == minEigenvalue) {
-                normalIdx = j;
-                break;
-            }
-        }
-
-        NP.row(i) = eigenvectors.col(normalIdx).transpose();
+        // double minEigenvalue = eigenvalues.minCoeff();
+        // int normalIdx = -1;
+        // for (int j = 0; j < eigenvalues.rows(); j ++) {
+        //     if (eigenvalues[j] == minEigenvalue) {
+        //         normalIdx = j;
+        //         break;
+        //     }
+        // }
+        // cout << "found smallest eigenvector: " << normalIdx << endl;
+        
+        NP.row(i) = eigenvectors.col(0).transpose() / eigenvectors.col(0).norm();
     }
 
-    // make all normal orientations consistent
-    cout << "building NN Graph" << endl;
-    buildNNGraph(10);
-    cout << "propagating normal orientations" << endl;
-    propagateNormalOrientation();
-    cout << "finish normal estimation" << endl;
+    // // make all normal orientations consistent
+    // buildNNGraph(k);
+    // buildMinSpanningTree();
+    // propagateNormalOrientation();
+
+    // correct normal orientations
+    for (int i = 0; i < P.rows(); i ++) {
+        if (NP.row(i) * N.row(i).transpose() < 0) {
+            NP.row(i) = - NP.row(i);
+        }
+    }
 }
 
 void create_spatial_index() {
@@ -650,7 +652,10 @@ void create_spatial_index() {
     dimY = ceil((bb_max[1] - bb_min[1] + extraSpace[1]) / dimUnitY);
     dimZ = ceil((bb_max[2] - bb_min[2] + extraSpace[2]) / dimUnitZ);
 
-    // initialize grid_to_vertices map
+    // (re)initialize grid_to_vertices map
+    while (gridToVertices.size() != 0) {
+        gridToVertices.pop_back();
+    }
     gridToVertices.resize(dimX, std::vector<std::vector<std::vector<int>>>(dimY, std::vector<std::vector<int>>(dimZ)));
     // index the vertices
     for (int i = 0; i < P.rows(); i ++) {
@@ -665,6 +670,8 @@ void create_spatial_index() {
 }
 
 void buildNNGraph(int k) {
+    nnGraph.resize(P.rows(), P.rows());
+    nnGraph.setZero();
     // for each point
     for (int i = 0; i < P.rows(); i ++) {
         // find k nearest neighbours within the wendlandRadius
@@ -674,35 +681,64 @@ void buildNNGraph(int k) {
         double yi = pi(1);
         double zi = pi(2);
 
-        // spatial index of the point at (x, y, z)
-        int xIdx = floor((xi - bb_min[0] + halfExtraSpace[0]) / dimUnitX);
-        int yIdx = floor((yi - bb_min[1] + halfExtraSpace[1]) / dimUnitY);
-        int zIdx = floor((zi - bb_min[2] + halfExtraSpace[2]) / dimUnitZ);
-
-        // find all points within wendlandRadius
+        // without spatial index
         std::vector<int> neighboursIdx;
-        // with spatial index
-        for (int localX = max(0, xIdx - 1); localX <= min(dimX - 1, xIdx + 1); localX ++) {
-            for (int localY = max(0, yIdx - 1); localY <= min(dimY - 1, yIdx + 1); localY ++) {
-                for (int localZ = max(0, zIdx - 1); localZ <= min(dimZ - 1, zIdx + 1); localZ ++) {
-                    for (int j : gridToVertices[localX][localY][localZ]) {
-                        // check if the point is within the radius
-                        Eigen::RowVector3d pj = P.row(j);
-                        double dist = (pi - pj).norm();
-                        if (dist < wendlandRadius && i != j) {
-                            neighboursIdx.push_back(j);
-                        }
-                    }
-                }
+        for (int j = 0; j < P.rows(); j ++) {
+            if (i != j) {
+                neighboursIdx.push_back(j);
             }
         }
 
         // find the k nearest neighbours
-        Eigen::MatrixXd neighbours(neighboursIdx.size(), 3);
-        Eigen::VectorXd neighboursDist = (neighbours.rowwise() - pi).rowwise().norm();
-        std::sort(neighboursIdx.begin(), neighboursIdx.end(), [neighboursDist](int a, int b){return neighboursDist[a] < neighboursDist[b];});
-        for (int j = 0; j < min(k, (int) neighboursIdx.size()); j ++) {
-            nnGraph(i, j) = 1;
+        Eigen::VectorXd neighboursDist = (P.rowwise() - pi).rowwise().norm();
+        sort(neighboursIdx.begin(), neighboursIdx.end(), [neighboursDist](int a, int b){return neighboursDist[a] < neighboursDist[b];});
+        for (int j = 0; j < k; j ++) {
+            int nIdx = neighboursIdx[j];
+            // add weight to the edge, does not allow duplicates
+            nnGraph(i, nIdx) = 1 - abs(NP.row(i) * NP.row(nIdx).transpose());
+            edgeList.push_back(make_pair(make_pair(i, nIdx), nnGraph(i, nIdx)));
+        }
+    }
+}
+
+void myUnion(vector<int> parent, int i, int j) {
+    parent[i] = j;
+}
+
+int unionFind(vector<int> parent, int i) {
+    if (parent[i] == -1) {
+        return i;
+    }
+    return unionFind(parent, parent[i]);
+}
+
+void buildMinSpanningTree() {
+    // initialize nnMinSpanningTree
+    nnMinSpanningTree.resize(nnGraph.rows(), nnGraph.rows());
+    nnMinSpanningTree.setZero();
+
+    // initialize tree edge list
+    vector<pair<int, int>> treeEdgeList;
+    // initialize parent
+    vector<int> parent(nnGraph.rows(), -1);
+    // sort the edges in ascending order of the weights
+    sort(edgeList.begin(), edgeList.end(), [](pair<pair<int, int>, double> a, pair<pair<int, int>, double> b){return a.second < b.second;});
+
+    // for each edge, if no cycle, add it to the minimum spanning tree
+    for (pair<pair<int, int>, double> e : edgeList) {
+        int i = e.first.first;
+        int j = e.first.second;
+        // if no cycle, add the edge
+        int x = unionFind(parent, i);
+        int y = unionFind(parent, j);
+        if (x != y) {
+            nnMinSpanningTree(i, j) = 1;
+            // track the edge in parent
+            myUnion(parent, x, y);
+        }
+        // if n - 1 edges, break
+        if (nnMinSpanningTree.sum() == nnGraph.rows() - 1) {
+            break;
         }
     }
 }
@@ -710,7 +746,7 @@ void buildNNGraph(int k) {
 void propagateNormalOrientation() {
     // find the normal with the greatest z_coordinate
     double maxNormalZ = NP.colwise().maxCoeff()[2];
-    int maxNormalZIdx = 0;
+    int maxNormalZIdx = -1;
     for (int i = 0; i < P.rows(); i ++) {
         if (NP(i, 2) == maxNormalZ) {
             maxNormalZIdx = i;
@@ -719,28 +755,29 @@ void propagateNormalOrientation() {
 
     // initialization
     int N = P.rows();
-    int currNode = maxNormalZIdx;
-    Eigen::VectorXd visited(N);
-    visited.setZero();
-    visited[currNode] = 1;
+    int currNode;
+    std::vector<int> visited(nnGraph.rows(), 0);
     std::vector<int> toBeVisited;
+    toBeVisited.push_back(maxNormalZIdx);
 
     // start propagation, depth first search
-    while (visited.size() != N) {
+    while (toBeVisited.size() != 0) {
+        currNode = toBeVisited[toBeVisited.size() - 1];
+        toBeVisited.pop_back();
+
+        if (visited[currNode] == 0) {
+            visited[currNode] = 1;
+        }
+
         for (int i = 0; i < P.rows(); i ++) {
-            // if there is an edge and i has not been visited yet
-            if (nnGraph(currNode, i) == 1 && visited[i] == 0) {
-                // i to be visited
-                toBeVisited.push_back(i);
-                // check if they have consisten direction
+            if ((nnMinSpanningTree(currNode, i) == 1 || nnMinSpanningTree(i, currNode) == 1)  && visited[i] == 0) {
+                // check if they have consistent orientations
                 if (NP.row(currNode) * NP.row(i).transpose() < 0) {
                     NP.row(i) = - NP.row(i);
                 }
+                toBeVisited.push_back(i);
             }
         }
-
-        currNode = toBeVisited[toBeVisited.size() - 1];
-        toBeVisited.pop_back();
     }
 }
 
@@ -766,17 +803,13 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
         dim = (bb_max - bb_min) * 1.25;
         extraSpace = dim - (bb_max - bb_min);
         halfExtraSpace = 0.5 * extraSpace;
-
-        // initialize nnGraph
-        nnGraph.resize(P.rows(), P.rows());
-        nnGraph.setZero();
     }
 
     if (key == '2')
     {
         // load_grid_boundaries();
         create_spatial_index();
-        gettimeofday(&startTime, NULL);
+        // gettimeofday(&startTime, NULL);
 
         // Show all constraints
         viewer.data().clear();
@@ -909,8 +942,8 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
         viewer.data().point_size = 7;
         viewer.data().add_points(constrained_points, constrained_points_colors);
 
-        gettimeofday(&endTime, NULL);
-        cout << "running time: " << (long) endTime.tv_sec - startTime.tv_sec << " milliseconds" << endl;
+        // gettimeofday(&endTime, NULL);
+        // cout << "running time: " << (long) endTime.tv_sec - startTime.tv_sec << " milliseconds" << endl;
     }
 
     if (key == '3')
@@ -981,6 +1014,9 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
             return true;
         }
 
+        // output the results
+        igl::writeOFF("../res/hound.off", V, F);
+
         igl::per_face_normals(V, F, FN);
         viewer.data().set_mesh(V, F);
         viewer.data().show_lines = true;
@@ -1016,7 +1052,7 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
     if (key == '6' || key == '7' || key == '8')
     {
         // Implement PCA Normal Estimation --> Function to be modified here
-        pcaNormal();
+        pcaNormal(10);
 
         // To use the normals estimated via PCA instead of the input normals and then restaurate the input normals
         Eigen::MatrixXd N_tmp = N;
@@ -1054,10 +1090,12 @@ bool callback_load_mesh(Viewer &viewer, string filename)
 
 int main(int argc, char *argv[])
 {
+    Eigen::MatrixXd meshV;
+    Eigen::MatrixXi meshF;
     if (argc != 2)
     {
         cout << "Usage ex2_bin <mesh.off>" << endl;
-        igl::readOFF("../data/sphere.off", P, F, N);
+        igl::readOFF("../res/hound.off", meshV, meshF);
     }
     else
     {
@@ -1085,16 +1123,45 @@ int main(int argc, char *argv[])
             {
                 std::cout << "ResetGrid\n";
                 // Recreate the grid
-                createGrid();
+                // createGrid();
                 // Switch view to show the grid
+                callback_key_down(viewer, '2', 0);
                 callback_key_down(viewer, '3', 0);
             }
 
             // TODO: Add more parameters to tweak here...
+            ImGui::InputInt("PolyDegree", &polyDegree, 0, 0);
+            if (ImGui::Button("Reset PolyDegree", ImVec2(-1, 0)))
+            {
+                std::cout << "ResetPolyDegree\n";
+                // Recreate the grid
+                // createGrid();
+                // Switch view to show the grid
+                callback_key_down(viewer, '2', 0);
+                callback_key_down(viewer, '3', 0);
+                callback_key_down(viewer, '4', 0);
+            }
+
+            ImGui::InputDouble("WendlandRadius", &wendlandRadius, 0, 0);
+            if (ImGui::Button("Reset WendlandRadius", ImVec2(-1, 0)))
+            {
+                std::cout << "ResetWendLandRadius\n";
+                // Recreate the grid
+                // createGrid();
+                // Switch view to show the grid
+                cout << "key down 2" << endl;
+                callback_key_down(viewer, '2', 0);
+                cout << "key down 3" << endl;
+                callback_key_down(viewer, '3', 0);
+            }
         }
     };
 
     callback_key_down(viewer, '1', 0);
+    // viewer.data().clear();
+    // viewer.data().set_mesh(meshV, meshF);
+    // viewer.data().compute_normals();
+    // viewer.core().align_camera_center(meshV, meshF);
 
     viewer.launch();
 }

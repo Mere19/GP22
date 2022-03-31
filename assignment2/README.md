@@ -107,5 +107,5 @@ Please show your answer in screenshot/photos (or link to a PDF). Make sure your 
 
 | model names  | PCA normals             |  Provided normals       | 
 | :---------:  | :---------------------: | :---------------------: |
-| luigi        | <img align="center"  src="./res/placeholder.png" width="300"> |<img align="center"  src="./res/placeholder.png" width="300">  |
+| luigi        | <img align="center"  src="./res/Q5_pca_luigi.png" width="300"> |<img align="center"  src="./res/Q5_provided_luigi.png" width="300">  |
 | comments        | xxxxxxxxxxx | xxxxxxxxxxx |
