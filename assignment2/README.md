@@ -3,6 +3,8 @@ Name: 'Di Zhuang'
 
 Legi-Nr: '21958772'
 
+**The ouptut .off files are in assignment2/res folder**
+
 ## Required results
 Edit this 'README.md' file to report all your results. You only need to update the tables in the reports section by adding screenshots and reporting results.
 
