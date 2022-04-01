@@ -57,11 +57,20 @@ The difference between spatial-index method and no-spatial-index method is not o
 | Wendland function radius |   As the Wendland function radius increases, the continuity of the reconstructed mesh becomes better.   |
 | polynomial degree        |  As the polynomial degree increases, the details of the surface are better approximated. However, increasing the polynomial degree may also lead to overfitting, resulting in noise in the reconstructed mesh.  |
 
+| params setting           | reconstruction    | 
+| ---------------------  | ------------------- |
+| polyDegree = 0, wendlandRadius = 0.03, Resoluton = 80          |   <img align="center" src="./res/poly0.png" width="300">   |
+| polyDegree = 2, wendlandRadius = 0.03, Resoluton = 80 |   <img align="center" src="./res/poly2.png" width="300">   |
+| polyDegree = 0, wendlandRadius = 0.03, Resoluton = 50 |   <img align="center" src="./res/resolution50.png" width="300">   |
+| polyDegree = 0, wendlandRadius = 0.01, Resoluton = 80 |   <img align="center" src="./res/wendland01.png" width="300">   |
+
 **Please compare the computation time for constraints computation and MLS using brute force and a spatial index. Use hound.off for the comparison and use the same parameters for the timings with and without use of spatial index (please report the parameters that you used).**
 | step                    | brute force         |  spatial index      |
 | :---------------------: | :-----------------: | :-----------------: |
 | constraints             |   1 seconds   |    0.037 seconds             |
 | MLS                     |   23 seconds              |    0.26 seconds             |
+
+**Parameters**: hound.off with Resolution = 80, wnedlandRadius = 0.03, polyDegree = 0
 
 
 

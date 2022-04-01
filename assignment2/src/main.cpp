@@ -388,7 +388,7 @@ void evaluateImplicitFunc()
         }
     }
     gettimeofday(&endTime, NULL);
-    cout << "constraints running time: " << (long) endTime.tv_sec - startTime.tv_sec << " milliseconds" << endl;
+    cout << "MLS running time: " << (long) endTime.tv_sec - startTime.tv_sec << " milliseconds" << endl;
 }
 
 void evaluateImplicitFunc_PolygonSoup()
@@ -899,26 +899,26 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
             minDist = (epsilon * N.row(i)).norm();
             // cout << "before second while" << endl;
             while (true) {
-                // with spatial index
-                for (int l = xStartIdx; l <= xEndIdx; l ++) {
-                    for (int m = yStartIdx; m <= yEndIdx; m ++) {
-                        for (int n = zStartIdx; n <= zEndIdx; n ++) {
-                            for (int j : gridToVertices[l][m][n]) {
-                                double tempDist = (P.row(j) - epsilonMinus).norm();
-                                if (tempDist < minDist) {
-                                    closestPt = j;
-                                }
-                            }
-                        }
-                    }
-                }
-                // // without spatial index
-                // for (int j = 0; j < P.rows(); j ++) {
-                //     double tempDist = (P.row(j) - epsilonMinus).norm();
-                //     if (tempDist < minDist) {
-                //         closestPt = j;
+                // // with spatial index
+                // for (int l = xStartIdx; l <= xEndIdx; l ++) {
+                //     for (int m = yStartIdx; m <= yEndIdx; m ++) {
+                //         for (int n = zStartIdx; n <= zEndIdx; n ++) {
+                //             for (int j : gridToVertices[l][m][n]) {
+                //                 double tempDist = (P.row(j) - epsilonMinus).norm();
+                //                 if (tempDist < minDist) {
+                //                     closestPt = j;
+                //                 }
+                //             }
+                //         }
                 //     }
                 // }
+                // without spatial index
+                for (int j = 0; j < P.rows(); j ++) {
+                    double tempDist = (P.row(j) - epsilonMinus).norm();
+                    if (tempDist < minDist) {
+                        closestPt = j;
+                    }
+                }
 
                 if (closestPt == i) {
                     break;
@@ -941,7 +941,7 @@ bool callback_key_down(Viewer &viewer, unsigned char key, int modifiers)
         viewer.data().add_points(constrained_points, constrained_points_colors);
 
         gettimeofday(&endTime, NULL);
-        cout << "MLS running time: " << (long) endTime.tv_usec - startTime.tv_usec << " milliseconds" << endl;
+        cout << "constraints running time: " << (long) endTime.tv_usec - startTime.tv_usec << " milliseconds" << endl;
     }
 
     if (key == '3')
