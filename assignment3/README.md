@@ -28,21 +28,21 @@ Edit this 'README.md' file to report all your results. You only need to update t
 
 | normals        | torus.obj                  | Julius.obj                 |
 | :-----------:  | ------------------------------------- |------------------------------------- |
-| standard       |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
-| area-weighted  |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
-| mean-curvature |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
-| PCA (k=1)      |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
-| PCA (k=2)      |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
-| quadratic (k=1)|<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
-| quadratic (k=2) |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
+| standard       |<img align="center" src="./res/Q1_torus_standard.png" width="300">| <img align="center"  src="./res/Q1_julius_standard.png" width="300"> |
+| area-weighted  |<img align="center" src="./res/Q1_torus_area.png" width="300">| <img align="center"  src="./res/Q1_julius_area.png" width="300"> |
+| mean-curvature |<img align="center" src="./res/Q1_torus_mean.png" width="300">| <img align="center"  src="./res/Q1_julius_mean.png" width="300"> |
+| PCA (k=1)      |<img align="center" src="./res/Q1_torus_PCA_1.png" width="300">| <img align="center"  src="./res/Q1_julius_PCA_1.png" width="300"> |
+| PCA (k=2)      |<img align="center" src="./res/Q1_torus_PCA_2.png" width="300">| <img align="center"  src="./res/Q1_julius_PCA_2.png" width="300"> |
+| quadratic (k=1)|<img align="center" src="./res/Q1_torus_quad_1.png" width="300">| <img align="center"  src="./res/Q1_julius_quad_1.png" width="300"> |
+| quadratic (k=2) |<img align="center" src="./res/Q1_torus_quad_2.png" width="300">| <img align="center"  src="./res/Q1_julius_quad_2.png" width="300"> |
 
 ### 2 - Matching curvature expressions and the figures
 | expression   |  Your answer |  Your explanation   |
 |--------------|--------------|------------------|
-| k1           | a/b/c/d      | xxxxx            |
-| k2           | a/b/c/d      | xxxxx            |
-| k3           | a/b/c/d      | xxxxx            |
-| k4           | a/b/c/d      | xxxxx            |
+| k1           | d      | The function indicates that the curvature is always greater than zero, so there is no straight part along the curvature expression. |
+| k2           | c      | The function is odd, indicating that the curvature expression is not symmetric. |
+| k3           | a      | The function is even, and it is non-negative, indicating that the curvature expression is symmetric, and it does not cross. |
+| k4           | b      | The function is even, and it changes from positive to negative and to positive as **s** increases from negative to positive, , indicating that the curvature expression is symmetric, and it crosses three times. |
 
 
 ### 3 - Visualize curvatures
@@ -51,9 +51,9 @@ Edit this 'README.md' file to report all your results. You only need to update t
 
 | Min Curvature                         |  Max Curvature                       |
 | ------------------------------------- |------------------------------------- |
-|<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
+|<img align="center" src="./res/Q3_min.png" width="300">| <img align="center"  src="./res/Q3_max.png" width="300"> |
 | Mean Curvature                        |  Gaussian Curvature                  |
-|<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
+|<img align="center" src="./res/Q3_mean.png" width="300">| <img align="center"  src="./res/Q3_gaussian.png" width="300"> |
 
 
 ### 4 - Implicit v.s. explicit Laplacian Smoothing
@@ -61,19 +61,22 @@ Edit this 'README.md' file to report all your results. You only need to update t
 **Use the mesh bunny_noise.obj**
 
 **Try different laplacian matrices, step sizes and iterations**
-
-| Input  |  Implicit (your params01)    |  Implicit (your params02)          | Implicit (your params03)          |
+| Input  |  Implicit (cotangent, #iteration = 10, dt*lambda = 0.00001)    |  Implicit (cotangent, #iteration = 20, dt*lambda = 0.00001)          | Implicit (cotangent, #iteration = 20, dt*lambda = 0.001)          |
 | -------|----------------------------- |------------------------------------|---------------------------------- |
-|<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |<img align="center"  src="./res/placeholder.png" width="300"> |<img align="center"  src="./res/placeholder.png" width="300"> |
+|<img align="center" src="./res/bunny.png" width="300">| <img align="center"  src="./res/Q4_implicit_1.png" width="300"> |<img align="center"  src="./res/Q4_implicit_2.png" width="300"> |<img align="center"  src="./res/Q4_implicit_3.png" width="300"> |
 
-Your observations:
+| Input  |  Implicit (uniform, #iteration = 10, dt*lambda = 0.00001)    |  Implicit (uniform, #iteration = 20, dt*lambda = 0.00001)          | Implicit (uniform, #iteration = 20, dt*lambda = 0.001)          |
+| -------|----------------------------- |------------------------------------|---------------------------------- |
+|<img align="center" src="./res/bunny.png" width="300">| <img align="center"  src="./res/.png" width="300"> |<img align="center"  src="./res/.png" width="300"> |<img align="center"  src="./res/.png" width="300"> |
+
+Your observations: 
 
 
 | Input  |  Explicit (your params01)    |  Explicit (your params02)          | Explicit (your params03)          |
 | -------|----------------------------- |------------------------------------|---------------------------------- |
-|<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |<img align="center"  src="./res/placeholder.png" width="300"> |<img align="center"  src="./res/placeholder.png" width="300"> |
+|<img align="center" src="./res/bunny.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |<img align="center"  src="./res/placeholder.png" width="300"> |<img align="center"  src="./res/placeholder.png" width="300"> |
 
-Your observations:
+Your observations: 
 
 ### 5 - Laplacian v.s. bilateral smoothing
 
@@ -81,6 +84,6 @@ Your observations:
 
 | Input                                 |  Laplacian Smoothing                 |  Bilateral Smoothing                 |
 | ------------------------------------- |------------------------------------- |------------------------------------- |
-|<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |<img align="center"  src="./res/placeholder.png" width="300"> |
+|<img align="center" src="./res/bunny.png" width="300">| <img align="center"  src="./res/laplacian.png" width="300"> |<img align="center"  src="./res/bilateral_no_wire.png" width="300"> |
 
-Your observations:
+Your observations: bilateral smoothing preserves more features (e.g. the fur curve).

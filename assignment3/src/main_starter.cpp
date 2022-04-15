@@ -43,7 +43,7 @@ Eigen::MatrixXd N_area;
 Eigen::MatrixXd N_meanCurvature;
 // Per-vertex PCA normal array, #Vx3
 // K for K-ring
-int K = 1;
+int K = 2;
 Eigen::MatrixXd N_PCA;
 // Per-vertex quadratic fitted normal array, #Vx3
 Eigen::MatrixXd fromCanonical;
@@ -74,32 +74,63 @@ Eigen::MatrixXd V_impLap;
 // Bilateral smoothed vertex array, #Vx3
 Eigen::MatrixXd V_bilateral;
 
-Eigen::SparseMatrix<double> uniform_gaussian(Eigen::MatrixXd V, Eigen::MatrixXi F) {
+
+Eigen::SparseMatrix<double> uniform_laplacian(Eigen::MatrixXd V, Eigen::MatrixXi F) {
     // initialize laplacian
     Eigen::SparseMatrix<double> L(V.rows(), V.rows());
     L.setZero();
-
-    // initialize and compute adjacency lists for each vertex
-    std::vector<std::vector<int>> A;
-    igl::adjacency_list(F, A);
 
     // initialize list of non-zero elements (row, column, value)
     std::vector<Eigen::Triplet<double> > tripletList;
 
     // insert element to the list (row, column, value)
-    for (int i = 0; i < V.rows(); i ++) {
-        tripletList.push_back(Eigen::Triplet<double>(i, i, -1));
-        for (int j : A[i]) {
-            tripletList.push_back(Eigen::Triplet<double>(i, j, 1 / A[i].size()));
+    for (int i = 0; i < F.rows(); i ++) {
+        for (int j = 0; j < 3; j ++) {
+            int j1 = (j+1)%3;
+            int j2 = (j+2)%3;
+
+            tripletList.push_back(Eigen::Triplet<double>(F(i, j1), F(i, j2), 1));
+            tripletList.push_back(Eigen::Triplet<double>(F(i, j2), F(i, j1), 1));
+            tripletList.push_back(Eigen::Triplet<double>(F(i, j1), F(i, j1), -1));
+            tripletList.push_back(Eigen::Triplet<double>(F(i, j2), F(i, j2), -1));
         }
     }
 
     //construct matrix from the list
     L.setFromTriplets(tripletList.begin(), tripletList.end());
 
-    cout << L << endl;
-
     return L;
+}
+
+std::vector<int> getAdaptiveNeighbours(int i, Eigen::MatrixXd V, std::vector<std::vector<int>> A, double sigma_c) {
+    std::vector<int> neighbours;
+
+    std::vector<bool> visited(V.rows(), false);
+    std::queue<int> toBeVisited;
+    visited[i] = true;
+    toBeVisited.push(i);
+    double radius = 2 * sigma_c;
+    Eigen::RowVector3d vi = V.row(i);
+
+    while (!toBeVisited.empty()) {
+        int v = toBeVisited.front();
+        toBeVisited.pop();
+        neighbours.push_back(v);
+        for (int j : A[v]) {
+            if (visited[j] == false) {
+                Eigen::RowVector3d vj = V.row(j);
+                double dist = (vi - vj).norm();
+                if (dist <= radius) {
+                    toBeVisited.push(j);
+                }
+                visited[j] = true;
+            }
+        }
+    }
+
+    // cout << "num neighbours = " << neighbours.size() << endl;
+
+    return neighbours;
 }
 
 bool callback_key_down(Viewer& viewer, unsigned char key, int modifiers) {
@@ -511,8 +542,7 @@ bool callback_key_down(Viewer& viewer, unsigned char key, int modifiers) {
         Eigen::MatrixXd I = Eigen::MatrixXd::Identity(V.rows(), V.rows());
 
         // compute uniform-weighted Laplacian
-        Eigen::SparseMatrix<double> L_uniform;
-        L_uniform = uniform_gaussian(V, F);
+        Eigen::SparseMatrix<double> L_uniform = uniform_laplacian(V, F);
 
         // compute cotangent-weighted Laplacian
         Eigen::SparseMatrix<double> L_cotangent;
@@ -548,9 +578,57 @@ bool callback_key_down(Viewer& viewer, unsigned char key, int modifiers) {
     }
 
     if (key == 'D'){
+        bool cotangent = true;
         // Implicit smoothing for comparison
         // store the smoothed vertices in V_impLap
         V_impLap = V;
+
+        // compute identity matrix
+        Eigen::MatrixXd I = Eigen::MatrixXd::Identity(V.rows(), V.rows());
+
+        // compute uniform-weighted Laplacian
+        Eigen::SparseMatrix<double> L_uniform = uniform_laplacian(V, F);
+
+        // compute cotangent-weighted Laplacian
+        Eigen::SparseMatrix<double> L_cotangent;
+        igl::cotmatrix(V, F, L_cotangent);
+
+        // initialize mass matrix
+        Eigen::SparseMatrix<double> M, Minv;
+
+        Eigen::SparseMatrix<double> L;
+        if (cotangent) {
+            L = L_cotangent;
+        } else {
+            L = L_uniform;
+        }
+
+        // iteratively run the smoothing process
+        for (int i = 0; i < Niter; i ++) {
+            if (cotangent) {
+                // compute mass matrix
+                igl::massmatrix(V, F, igl::MASSMATRIX_TYPE_BARYCENTRIC, M);
+                // Solve (M-lamda*L) V = M*V
+                const auto & S = (M - lamda*L);
+                Eigen::SimplicialLLT<Eigen::SparseMatrix<double > > solver(S);
+                assert(solver.info() == Eigen::Success);
+                V_impLap = solver.solve(M*V_impLap).eval();
+
+                // Compute centroid and subtract (also important for numerics)
+                Eigen::VectorXd dblA;
+                igl::doublearea(V_impLap, F,dblA);
+                double area = 0.5*dblA.sum();
+                Eigen::MatrixXd BC;
+                igl::barycenter(V_impLap, F, BC);
+                Eigen::RowVector3d centroid(0,0,0);
+                for(int i = 0;i<BC.rows();i++) {
+                    centroid += 0.5 * dblA(i) / area * BC.row(i);
+                }
+                V_impLap.rowwise() -= centroid;
+            } else {
+                // update
+            }
+        }
 
         // Set the smoothed mesh
         viewer.data().clear();
@@ -563,6 +641,100 @@ bool callback_key_down(Viewer& viewer, unsigned char key, int modifiers) {
         // be care of the sign mistake in the paper
         // use v' = v - n * (sum / normalizer) to update
         V_bilateral = V;
+
+        // other initialization
+
+        for (int k = 0; k < 5; k ++) {
+            cout << "k = " << k << endl;
+            // initialize and compute adjacency lists for each vertex
+            std::vector<std::vector<int>> A;
+            igl::adjacency_list(F, A);
+
+            // recompute normals
+            igl::per_face_normals(V_bilateral, F, FN);
+            igl::per_vertex_normals(V_bilateral, F, VN);
+
+            // initialize area norm
+            N_area.resize(V.rows(), 3);
+
+            // compute per face/vertex normal
+            igl::per_face_normals(V, F, FN);
+            igl::per_vertex_normals(V, F, VN);
+
+            // compute vertex-face adjacency
+            std::vector<std::vector<int>> VF;
+            std::vector<std::vector<int>> VFi;
+            igl::vertex_triangle_adjacency(V, F, VF, VFi);
+
+            // compute double face areas
+            Eigen::VectorXd doubA;
+            igl::doublearea(V, F, doubA);
+
+            // compute uniform vertex normal for each vertex
+            for (int i = 0; i < V.rows(); i ++) {
+                Eigen::RowVector3d vertex_normal(0.0, 0.0, 0.0);
+                std::vector<int> faces = VF[i];
+                double total_weight = 0;
+                for (int f : faces) {
+                    total_weight += doubA[f];
+                    vertex_normal += doubA[f] * FN.row(f);
+                }
+                vertex_normal /= total_weight;
+
+                // Use igl::per_vertex_normals to orient your normals consistently.
+                if (vertex_normal * VN.row(i).transpose() < 0) {
+                    N_area.row(i) = -vertex_normal;
+                } else {
+                    N_area.row(i) = vertex_normal;
+                }
+            }
+            N_area.rowwise().normalize();
+
+            for (int i = 0; i < V.rows(); i ++) {
+                Eigen::RowVector3d vi = V_bilateral.row(i);
+                // determine sigma_c
+                double sigma_c = 10;
+                for (int j : A[i]) {
+                    Eigen::RowVector3d vj = V_bilateral.row(j);
+                    double dist = (vi - vj).norm();
+                    if (dist < sigma_c) {
+                        sigma_c = dist;
+                    }
+                }
+                // get adaptive neighbours
+                std::vector<int> neighbours = getAdaptiveNeighbours(i, V_bilateral, A, sigma_c);
+
+                // parameter tuning
+                double t, h, wc, ws, sum = 0, normalizer = 0;
+                double sigma_s_sqrd = 0, h_mean = 0;
+                for (int j : neighbours) {
+                    Eigen::RowVector3d v_qi = vi - V_bilateral.row(j);
+                    t = v_qi.norm();
+                    h = v_qi * N_area.row(i).transpose();
+                    h_mean += h;
+                }
+                h_mean /= neighbours.size();
+
+                for (int j : neighbours) {
+                    Eigen::RowVector3d v_qi = vi - V_bilateral.row(j);
+                    h = v_qi * N_area.row(i).transpose();
+                    sigma_s_sqrd += (h - h_mean) * (h - h_mean);
+                }
+                sigma_s_sqrd /= A[i].size();
+
+                for (int j : neighbours) {
+                    Eigen::RowVector3d v_qi = vi - V_bilateral.row(j);
+                    t = v_qi.norm();
+                    h = v_qi * N_area.row(i).transpose();
+                    wc = exp(-t*t/(2*sigma_c*sigma_c));
+                    ws = exp(-h*h/(2*sigma_s_sqrd));
+                    sum += (wc * ws) * h;
+                    normalizer += wc * ws;
+                }
+
+                V_bilateral.row(i) = vi - (sum / normalizer) * N_area.row(i);
+            }
+        }
 
         // Set the smoothed mesh
         viewer.data().clear();
