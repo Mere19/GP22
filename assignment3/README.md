@@ -65,18 +65,21 @@ Edit this 'README.md' file to report all your results. You only need to update t
 | -------|----------------------------- |------------------------------------|---------------------------------- |
 |<img align="center" src="./res/bunny.png" width="300">| <img align="center"  src="./res/Q4_implicit_1.png" width="300"> |<img align="center"  src="./res/Q4_implicit_2.png" width="300"> |<img align="center"  src="./res/Q4_implicit_3.png" width="300"> |
 
-| Input  |  Implicit (uniform, #iteration = 10, dt*lambda = 0.00001)    |  Implicit (uniform, #iteration = 20, dt*lambda = 0.00001)          | Implicit (uniform, #iteration = 20, dt*lambda = 0.001)          |
+| Input  |  Implicit (uniform, #iteration = 100, dt*lambda = 0.001)    |  Implicit (uniform, #iteration = 200, dt*lambda = 0.001)          | Implicit (uniform, #iteration = 200, dt*lambda = 0.1)          |
 | -------|----------------------------- |------------------------------------|---------------------------------- |
-|<img align="center" src="./res/bunny.png" width="300">| <img align="center"  src="./res/.png" width="300"> |<img align="center"  src="./res/.png" width="300"> |<img align="center"  src="./res/.png" width="300"> |
+|<img align="center" src="./res/bunny.png" width="300">| <img align="center"  src="./res/Q4_implicit_uni_1.png" width="300"> |<img align="center"  src="./res/Q4_implicit_uni_2.png" width="300"> |<img align="center"  src="./res/Q4_implicit_uni_3.png" width="300"> |
 
-Your observations: 
+Your observations: In comparison to cotangent-weighted laplacian, uniform-weighted laplacian does not preserve the geometry very well when the triangle density is not uniform along the mesh. This can be seen from the third column, where for uniform-weighted laplacian, the "Hi" on the resulting mesh disappears. As #iteration and dt\*lambda increase, the resulting mesh becomes more and more smooth. However, aggressive value of dt\*lambda can lead to unnatural shrinkage of the mesh.
 
-
-| Input  |  Explicit (your params01)    |  Explicit (your params02)          | Explicit (your params03)          |
+| Input  |  Explicit (cotangent, #iteration = 40, dt*lambda = 0.01)    |  Explicit (cotangent, #iteration = 40, dt*lambda = 0.00001)          | Explicit (cotangent, #iteration = 100, dt*lambda = 0.00001)          |
 | -------|----------------------------- |------------------------------------|---------------------------------- |
-|<img align="center" src="./res/bunny.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |<img align="center"  src="./res/placeholder.png" width="300"> |<img align="center"  src="./res/placeholder.png" width="300"> |
+|<img align="center" src="./res/bunny.png" width="300">| <img align="center"  src="./res/Q4_explicit_cot_1.png" width="300"> |<img align="center"  src="./res/Q4_explicit_cot_2.png" width="300"> |<img align="center"  src="./res/Q4_explicit_cot_3.png" width="300"> |
 
-Your observations: 
+| Input  |  Explicit (uniform, #iteration = 40, dt*lambda = 0.01)    |  Explicit (uniform, #iteration = 100, dt*lambda = 0.01)          | Explicit (uniform, #iteration = 100, dt*lambda = 0.09)          |
+| -------|----------------------------- |------------------------------------|---------------------------------- |
+|<img align="center" src="./res/bunny.png" width="300">| <img align="center"  src="./res/Q4_explicit_uni_1.png" width="300"> |<img align="center"  src="./res/Q4_explicit_uni_2.png" width="300"> |<img align="center"  src="./res/Q4_explicit_uni_3.png" width="300"> |
+
+Your observations: Similar to the implicit case, in comparison to cotangent-weighted laplacian, uniform-weighted laplacian does not preserve the geometry very well when the triangle density is not uniform along the mesh. This can be seen from the third column, where for uniform-weighted laplacian, the "Hi" on the resulting mesh disappears. In addition, given the same parameters, cotangent-weighted laplacian tend to explode, while uniform-weighted laplacian is more stable. This can be seen from the first column. As #iteration and dt\*lambda increase, the resulting mesh becomes more and more smooth. However, aggressive value of dt\*lambda can lead to explosion of the mesh due to the numerically unstable nature of explicit smoothing.
 
 ### 5 - Laplacian v.s. bilateral smoothing
 

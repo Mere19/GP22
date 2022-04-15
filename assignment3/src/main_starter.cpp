@@ -62,9 +62,9 @@ Eigen::VectorXd K_max_principal;
 Eigen::MatrixXd colors_per_vertex;
 
 // number of iterations
-int Niter = 20;
+int Niter = 100;
 // lambda
-double lamda = 0.001;
+double lamda = 0.00001;
 // time step
 double dt = 1;
 // Explicitely smoothed vertex array, #Vx3
@@ -533,7 +533,7 @@ bool callback_key_down(Viewer& viewer, unsigned char key, int modifiers) {
     }
 
     if (key == 'E') {
-        bool cotangent = false;
+        bool cotangent = true;
         // Add your code for computing explicit Laplacian smoothing here:
         // store the smoothed vertices in V_expLap
         V_expLap = V;
@@ -578,13 +578,14 @@ bool callback_key_down(Viewer& viewer, unsigned char key, int modifiers) {
     }
 
     if (key == 'D'){
-        bool cotangent = true;
+        bool cotangent = false;
         // Implicit smoothing for comparison
         // store the smoothed vertices in V_impLap
         V_impLap = V;
 
         // compute identity matrix
-        Eigen::MatrixXd I = Eigen::MatrixXd::Identity(V.rows(), V.rows());
+        Eigen::SparseMatrix<double> I(V.rows(), V.rows());
+        I.setIdentity();
 
         // compute uniform-weighted Laplacian
         Eigen::SparseMatrix<double> L_uniform = uniform_laplacian(V, F);
@@ -627,6 +628,23 @@ bool callback_key_down(Viewer& viewer, unsigned char key, int modifiers) {
                 V_impLap.rowwise() -= centroid;
             } else {
                 // update
+                // Solve (I-lamda*L) V = V
+                const auto & S = (I - lamda*L);
+                Eigen::SimplicialLLT<Eigen::SparseMatrix<double > > solver(S);
+                assert(solver.info() == Eigen::Success);
+                V_impLap = solver.solve(V_impLap).eval();
+
+                // Compute centroid and subtract (also important for numerics)
+                Eigen::VectorXd dblA;
+                igl::doublearea(V_impLap, F,dblA);
+                double area = 0.5*dblA.sum();
+                Eigen::MatrixXd BC;
+                igl::barycenter(V_impLap, F, BC);
+                Eigen::RowVector3d centroid(0,0,0);
+                for(int i = 0;i<BC.rows();i++) {
+                    centroid += 0.5 * dblA(i) / area * BC.row(i);
+                }
+                V_impLap.rowwise() -= centroid;
             }
         }
 
