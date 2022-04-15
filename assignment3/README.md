@@ -42,7 +42,7 @@ Edit this 'README.md' file to report all your results. You only need to update t
 | k1           | d      | The function is even and positive, indicateing that the curvature expression is symmetric, and the curvature is always greater than zero, so there is no straight part along the curvature expression. |
 | k2           | c      | The function is odd, indicating that the curvature expression is not symmetric. |
 | k3           | a      | The function is even, and it is non-negative, indicating that the curvature expression is symmetric, and it does not cross, but part of it can be straight when the function attains zero. |
-| k4           | b      | The function is even, and it changes from positive to negative and to positive as **s** increases from negative to positive, , indicating that the curvature expression is symmetric, and it crosses three times. |
+| k4           | b      | The function is even, and it changes from positive to negative and to positive as **s** increases from negative to positive, indicating that the curvature expression is symmetric, and it crosses three times. |
 
 
 ### 3 - Visualize curvatures
