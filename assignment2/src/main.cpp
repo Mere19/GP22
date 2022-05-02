@@ -38,10 +38,10 @@ Eigen::VectorXd constrained_values;
 int polyDegree = 0;
 
 // Parameter: Wendland weight function radius (make this relative to the size of the mesh)
-double wendlandRadius = 0.03;
+double wendlandRadius = 10;
 
 // Parameter: grid resolution
-int resolution = 80;
+int resolution = 40;
 
 // Intermediate result: grid points, at which the imlicit function will be evaluated, #G x3
 Eigen::MatrixXd grid_points;
