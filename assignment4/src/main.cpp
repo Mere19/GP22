@@ -22,6 +22,7 @@
 #include <igl/speye.h>
 #include <igl/repdiag.h>
 #include <igl/cat.h>
+#include <>
 
 using namespace std;
 using namespace Eigen;
@@ -125,10 +126,31 @@ void ConvertConstraintsToMatrixForm(VectorXi indices, MatrixXd positions, Eigen:
 {
 	// Convert the list of fixed indices and their fixed positions to a linear system
 	// Hint: The matrix C should contain only one non-zero element per row and d should contain the positions in the correct order.
+	
+	// scalar replacement
+	int vsize = V.rows();
+	int wsize = indices.rows();
+
+	// initialize C and d
+	C.resize(2 * wsize, 2 * vsize);
+	d.resize(2 * wsize, 1);
+
+	// fill C
+	for (int i = 0; i < wsize; i++) {
+		C.insert(i, indices[i]) = 1;
+		C.insert(wsize + i, vsize + indices[i]) = 1;
+	}
+
+	// fill d
+	for (int i = 0; i < wsize; i++) {
+		d[i] = positions.row(i)[0];
+		d[wrows + i] = positions.row(i)[1];
+	}
+
+	return ;
 }
 
-void computeParameterization(int type)
-{
+void computeParameterization(int type) {
 	VectorXi fixed_UV_indices;
 	MatrixXd fixed_UV_positions;
 
@@ -136,15 +158,54 @@ void computeParameterization(int type)
 	VectorXd b;
 	Eigen::SparseMatrix<double> C;
 	VectorXd d;
-	// Find the indices of the boundary vertices of the mesh and put them in fixed_UV_indices
-	if (!freeBoundary)
-	{
-		// The boundary vertices should be fixed to positions on the unit disc. Find these position and
+
+	// find the indices of the boundary vertices of the mesh and put them in fixed_UV_indices
+	std::vector<int> L;
+	igl::boundary_loop(F, L);		// return the vertices of the longest boundary loop
+
+	if (!freeBoundary) {
+		// the boundary vertices should be fixed to positions on the unit disc. Find these position and
 		// save them in the #V x 2 matrix fixed_UV_position.
+		fixed_UV_indices.resize(L.size(), 1);
+		for (int i = 0; i < L.size(); i ++) {
+			fixed_UV_indices[i] = L[i];
+		}
+		fixed_UV_positions.resize(L.size(), 2);
+		igl::map_vertices_to_circle(V, fixed_UV_indices, fixed_UV_positions);
 	}
-	else
-	{
-		// Fix two UV vertices. This should be done in an intelligent way. Hint: The two fixed vertices should be the two most distant one on the mesh.
+	else {
+		// fix two UV vertices. This should be done in an intelligent way. Hint: The two fixed vertices should be the two most distant one on the mesh.
+		// so far: two extreme points of the boundary loop
+
+		// find the longest boundary loop
+		VectorXi boundary_indices;
+		MatrixXd boundary_positions;
+
+		boundary_indices.resize(L.size(), 1);
+		for (int i = 0; i < L.size(); i ++) {
+			boundary_indices[i] = L[i];
+		}
+		boundary_positions.resize(L.size(), 2);
+		igl::map_vertices_to_circle(V, boundary_indices, boundary_positions);
+
+		// initialize
+		fixed_UV_indices.resize(2, 1);
+		fixed_UV_positions.resize(2, 2);
+		// find the two vertices with the "longest" topological distance
+		int max_dist = 0;
+		int offset = L.size() / 2;
+		for (int i = 0; i < L.size(); i ++) {
+			int idx1 = L[i];
+			int idx2 = L[(i + offset) % L.size()]
+			double dist = (V.row(idx1) - V.row(idx2)).norm();
+			if (dist > max_dist) {
+				max_dist = dist;
+				fixed_UV_indices[0] = idx1;
+				fixed_UV_indices[1] = idx2;
+				fixed_UV_positions.row(0) = boundary_positions.row(i);
+				fixed_UV_positions.row(1) = boundary_positions.row((i + offset) % L.size());
+			}
+		}
 	}
 
 	ConvertConstraintsToMatrixForm(fixed_UV_indices, fixed_UV_positions, C, d);
@@ -155,16 +216,65 @@ void computeParameterization(int type)
 	if (type == '1') {
 		// Add your code for computing uniform Laplacian for Tutte parameterization
 		// Hint: use the adjacency matrix of the mesh
+
+		Eigen::SparseMatrix<int> M;		// adjacency matrix of the mesh
+		igl::adjacency_matrix(F, M);
+		Eigen::SparseVector<int> S;		// sum of each row of the adjacency matrix
+		igl::sum(M, 1, S);		// dim = 1: sum along each row
+		Eigen::SparseMatrix<int> D;		// matrix with the elements of S on the diagonal
+		igl::diag(M, D);
+
+		Eigen::SparseMarix<int> L = M - D;
+
+		// construct A by putting two L's on the diagonal
+		for (int i = 0; i < L.rows(); i ++) {
+			for (int j = 0; j < L.row(i).size(); j ++) {
+				A.insert(i, j) = L.coeff(i, j);
+				A.insert(L.rows() + i, L.rows() + j) = L.coeff(i, j);
+			}
+		}
 	}
 
 	if (type == '2') {
 		// Add your code for computing cotangent Laplacian for Harmonic parameterization
 		// Use can use a function "cotmatrix" from libIGL, but ~~~~***READ THE DOCUMENTATION***~~~~
+
+		Eigen::SparseMatrix<int> L;		// cotangent matrix of the mesh
+		igl::cotmatrix(V, F, L);
+
+		// construct A by putting two L's on the diagonal
+		for (int i = 0; i < L.rows(); i ++) {
+			for (int j = 0; j < L.row(i).size(); j ++) {
+				A.insert(i, j) = L.coeff(i, j);
+				A.insert(L.rows() + i, L.rows() + j) = L.coeff(i, j);
+			}
+		}
+		
+		b.setZero(2 * V.rows());
 	}
 
 	if (type == '3') {
 		// Add your code for computing the system for LSCM parameterization
 		// Note that the libIGL implementation is different than what taught in the tutorial! Do not rely on it!!
+
+		// compute surface gradients
+		Eigen::SparseMatrix<double> Dx, Dy;
+		computeSurfaceGradientMatrix(Dx, Dy);
+
+		// compute 2*area for the triangles
+		Eigen::VectorXd DA;
+		igl::doublearea(V, F, DA);
+
+		// construct linear system
+		Eigen::SparseMatrix<double> linearSys;
+		linearSys.resize(F.rows(),F.rows());
+		vector<Eigen::Triplet<double> > triplets;
+		for (int i = 0; i < F.rows(); i++)
+			triplets.push_back(Eigen::Triplet<double>(i,i,DA[i]));
+		linearSys.setFromTriplets(triplets.begin(), triplets.end());
+
+		// b = 0
+		b.setZero(2 * V.rows());
 	}
 
 	if (type == '4') {

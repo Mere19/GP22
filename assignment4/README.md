@@ -1,8 +1,8 @@
 # Assignment 4
 
-Name: 'Your real name'
+Name: 'Di Zhuang'
 
-Legi-Nr: 'Your legi number'
+Legi-Nr: '21958772'
 
 ## Required results
 Edit this 'README.md' file to report all your results. You only need to update the tables in the reports section by adding screenshots and reporting results.
