@@ -46,11 +46,11 @@ igl::opengl::ViewerCore temp3D;
 igl::opengl::ViewerCore temp2D;
 
 // distortion measurement
-int distortion_measure = 1;
+int distortion_measure = 3;		// 1 angle, 2 edge, 3 area
 Eigen::MatrixXd color;
 
 // distortion visualization
-bool visualizeDistortion;
+bool visualizeDistortion = false;
 
 void Redraw()
 {
@@ -61,11 +61,11 @@ void Redraw()
 		viewer.data().set_mesh(V, F);
 		viewer.data().set_face_based(false);
 
-    if(UV.size() != 0)
-    {
-      viewer.data().set_uv(TextureResolution*UV);
-      viewer.data().show_texture = true;
-    }
+		if(UV.size() != 0)
+		{
+		viewer.data().set_uv(TextureResolution*UV);
+		viewer.data().show_texture = true;
+		}
 	}
 	else
 	{
@@ -74,10 +74,10 @@ void Redraw()
 	}
 
 	// visualize distortion
-	// if (visualizeDistortion) {
-	// 	viewer.data().show_texture = false;
-	// 	viewer.data().set_colors(color);
-	// }
+	if (visualizeDistortion) {
+		viewer.data().show_texture = false;
+		viewer.data().set_colors(color);
+	}
 }
 
 bool callback_mouse_move(Viewer &viewer, int mouse_x, int mouse_y)
@@ -257,12 +257,23 @@ void computeParameterization(int type) {
 		SparseMatrix<int> L = M - D;
 
 		// construct A by putting two L's on the diagonal
-		for (int i = 0; i < L.rows(); i ++) {
-			for (int j = 0; j < L.row(i).size(); j ++) {
-				A.insert(i, j) = L.coeff(i, j);
-				A.insert(L.rows() + i, L.rows() + j) = L.coeff(i, j);
+		// for (int i = 0; i < L.rows(); i ++) {
+		// 	for (int j = 0; j < L.row(i).size(); j ++) {
+		// 		A.insert(i, j) = L.coeff(i, j);
+		// 		A.insert(L.rows() + i, L.rows() + j) = L.coeff(i, j);
+		// 	}
+		// }
+		
+		// use triplet to improve efficiency for octo_cut2 case
+		vector<Eigen::Triplet<int> > a;
+		A.resize(2 * V.rows(), 2 * V.rows());
+		for (int i = 0; i < L.outerSize(); i++) {
+			for (SparseMatrix<int>::InnerIterator it(L, i); it; ++it) {
+				a.push_back(Eigen::Triplet<int>(it.row(), it.col(), it.value()));
+				a.push_back(Eigen::Triplet<int>(it.row() + L.rows(), it.col() + L.rows(), it.value()));
 			}
 		}
+		A.setFromTriplets(a.begin(), a.end());
 	}
 
 	if (type == '2') {
@@ -276,12 +287,22 @@ void computeParameterization(int type) {
 		igl::cotmatrix(V, F, L);
 
 		// construct A by putting two L's on the diagonal
-		for (int i = 0; i < L.rows(); i ++) {
-			for (int j = 0; j < L.row(i).size(); j ++) {
-				A.insert(i, j) = L.coeff(i, j);
-				A.insert(L.rows() + i, L.rows() + j) = L.coeff(i, j);
+		// for (int i = 0; i < L.rows(); i ++) {
+		// 	for (int j = 0; j < L.row(i).size(); j ++) {
+		// 		A.insert(i, j) = L.coeff(i, j);
+		// 		A.insert(L.rows() + i, L.rows() + j) = L.coeff(i, j);
+		// 	}
+		// }
+
+		// use triplet to improve efficiency for octo_cut2 case
+		vector<Eigen::Triplet<double> > a;
+		for (int i = 0; i < L.outerSize(); i++) {
+			for (SparseMatrix<double>::InnerIterator it(L, i); it; ++it) {
+				a.push_back(Eigen::Triplet<double>(it.row(), it.col(), it.value()));
+				a.push_back(Eigen::Triplet<double>(it.row()+L.rows(), it.col()+L.rows(), it.value()));
 			}
 		}
+		A.setFromTriplets(a.begin(), a.end());
 	}
 
 	if (type == '3') {
@@ -467,7 +488,8 @@ void colorCodeDistortion() {
 		} else {		// authalic: area preserving
 			distortion = (J.determinant() - 1) * (J.determinant() - 1);
 		}
-		C << distortion;
+		// C << distortion;
+		C.row(i) << distortion;
 	}
 
 	// color distortions
@@ -498,6 +520,7 @@ bool callback_key_pressed(Viewer &viewer, unsigned char key, int modifiers) {
 			// Add your code for detecting and displaying flipped triangles in the
 			// UV domain here
 			colorCodeDistortion();
+			visualizeDistortion = true;
 			break;
 	case '+':
 		TextureResolution /= 2;
