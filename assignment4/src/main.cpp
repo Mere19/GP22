@@ -46,7 +46,7 @@ igl::opengl::ViewerCore temp3D;
 igl::opengl::ViewerCore temp2D;
 
 // distortion measurement
-int distortion_measure = 3;		// 1 angle, 2 edge, 3 area
+int distortion_measure = 1;		// 1 angle, 2 edge, 3 area
 Eigen::MatrixXd color;
 
 // distortion visualization
