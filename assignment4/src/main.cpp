@@ -45,6 +45,13 @@ double TextureResolution = 10;
 igl::opengl::ViewerCore temp3D;
 igl::opengl::ViewerCore temp2D;
 
+// distortion measurement
+int distortion_measure = 1;
+Eigen::MatrixXd color;
+
+// distortion visualization
+bool visualizeDistortion;
+
 void Redraw()
 {
 	viewer.data().clear();
@@ -65,6 +72,12 @@ void Redraw()
 		viewer.data().show_texture = false;
 		viewer.data().set_mesh(UV, F);
 	}
+
+	// visualize distortion
+	// if (visualizeDistortion) {
+	// 	viewer.data().show_texture = false;
+	// 	viewer.data().set_colors(color);
+	// }
 }
 
 bool callback_mouse_move(Viewer &viewer, int mouse_x, int mouse_y)
@@ -408,7 +421,69 @@ void computeParameterization(int type) {
 }
 
 void colorCodeDistortion() {
-	
+	// compute Jacobians
+	SparseMatrix<double> Dx, Dy;
+	computeSurfaceGradientMatrix(Dx, Dy);
+	VectorXd J11, J12, J21, J22;
+	J11 = Dx * UV.col(0);
+	J12 = Dy * UV.col(0);
+	J21 = Dx * UV.col(1);
+	J22 = Dy * UV.col(1);
+
+	Matrix2d I;
+	I.setIdentity();
+	VectorXd C;
+	C.resize(F.rows());
+	double distortion;
+	// measure distortions
+	for (int i = 0; i < F.rows(); i ++) {
+		// compute Jacobian of face i
+		Matrix2d J;
+		J.resize(2, 2);
+		J << J11[i], J12[i], J21[i], J22[i];
+
+		if (distortion_measure == 1) {		// conformal: angle preserving
+			Matrix2d JT;
+			JT = J.transpose();
+			Matrix2d TrJI;
+			TrJI = J.trace() * I;
+			distortion = (J + JT - TrJI).squaredNorm();		// frobenius norm
+		} else if (distortion_measure == 2) {		// isometric: edge preserving
+			Matrix2d U, S, V;
+			SSVD2x2(J, U, S, V);		// compute closest rotation
+			Matrix2d R;
+			R.resize(2, 2);
+			Eigen::Matrix2d UVt; 
+			UVt = U*V.transpose();
+			if (UVt.determinant() >= 0) {
+				R = UVt;
+			} else {
+				Eigen::Matrix2d temp;
+				temp.resize(2, 2);
+				temp << 1, 0, 0, -1;
+				R = U*temp*V.transpose();
+			}
+			distortion = (J - R).squaredNorm();		// frobenius norm
+		} else {		// authalic: area preserving
+			distortion = (J.determinant() - 1) * (J.determinant() - 1);
+		}
+		C << distortion;
+	}
+
+	// color distortions
+	color.resize(F.rows(), 3);
+	double min = C.minCoeff();
+	Eigen::VectorXd minVec;
+	minVec.resize(F.rows());
+	minVec.setConstant(min);
+	C = C - minVec;
+	double max = C.maxCoeff();
+	C = C / max;
+	Eigen::VectorXd ones;
+	ones.setOnes(F.rows());
+	color.col(0) << ones;
+	color.col(1) << ones - C;
+	color.col(2) << ones - C;
 }
 
 bool callback_key_pressed(Viewer &viewer, unsigned char key, int modifiers) {
@@ -417,13 +492,13 @@ bool callback_key_pressed(Viewer &viewer, unsigned char key, int modifiers) {
 	case '2':
 	case '3':
 	case '4':
-		computeParameterization(key);
-		break;
+			computeParameterization(key);
+			break;
 	case '5':
-		// Add your code for detecting and displaying flipped triangles in the
-		// UV domain here
-		visualizeDistortion();
-		break;
+			// Add your code for detecting and displaying flipped triangles in the
+			// UV domain here
+			colorCodeDistortion();
+			break;
 	case '+':
 		TextureResolution /= 2;
 		break;
