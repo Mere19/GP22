@@ -22,7 +22,7 @@
 #include <igl/speye.h>
 #include <igl/repdiag.h>
 #include <igl/cat.h>
-#include <>
+#include <igl/dijkstra.h>
 
 using namespace std;
 using namespace Eigen;
@@ -31,13 +31,13 @@ using Viewer = igl::opengl::glfw::Viewer;
 Viewer viewer;
 
 // vertex array, #V x3
-Eigen::MatrixXd V;
+MatrixXd V;
 
 // face array, #F x3
-Eigen::MatrixXi F;
+MatrixXi F;
 
 // UV coordinates, #V x2
-Eigen::MatrixXd UV;
+MatrixXd UV;
 
 bool showingUV = false;
 bool freeBoundary = false;
@@ -144,10 +144,8 @@ void ConvertConstraintsToMatrixForm(VectorXi indices, MatrixXd positions, Eigen:
 	// fill d
 	for (int i = 0; i < wsize; i++) {
 		d[i] = positions.row(i)[0];
-		d[wrows + i] = positions.row(i)[1];
+		d[wsize + i] = positions.row(i)[1];
 	}
-
-	return ;
 }
 
 void computeParameterization(int type) {
@@ -156,24 +154,23 @@ void computeParameterization(int type) {
 
 	SparseMatrix<double> A;
 	VectorXd b;
-	Eigen::SparseMatrix<double> C;
+	SparseMatrix<double> C;
 	VectorXd d;
 
 	// find the indices of the boundary vertices of the mesh and put them in fixed_UV_indices
-	std::vector<int> L;
-	igl::boundary_loop(F, L);		// return the vertices of the longest boundary loop
+	std::vector<int> Bd;
+	igl::boundary_loop(F, Bd);		// return the vertices of the longest boundary loop
 
 	if (!freeBoundary) {
 		// the boundary vertices should be fixed to positions on the unit disc. Find these position and
 		// save them in the #V x 2 matrix fixed_UV_position.
-		fixed_UV_indices.resize(L.size(), 1);
-		for (int i = 0; i < L.size(); i ++) {
-			fixed_UV_indices[i] = L[i];
+		fixed_UV_indices.resize(Bd.size(), 1);
+		for (int i = 0; i < Bd.size(); i ++) {
+			fixed_UV_indices[i] = Bd[i];
 		}
-		fixed_UV_positions.resize(L.size(), 2);
+		fixed_UV_positions.resize(Bd.size(), 2);
 		igl::map_vertices_to_circle(V, fixed_UV_indices, fixed_UV_positions);
-	}
-	else {
+	} else {
 		// fix two UV vertices. This should be done in an intelligent way. Hint: The two fixed vertices should be the two most distant one on the mesh.
 		// so far: two extreme points of the boundary loop
 
@@ -181,31 +178,48 @@ void computeParameterization(int type) {
 		VectorXi boundary_indices;
 		MatrixXd boundary_positions;
 
-		boundary_indices.resize(L.size(), 1);
-		for (int i = 0; i < L.size(); i ++) {
-			boundary_indices[i] = L[i];
+		boundary_indices.resize(Bd.size(), 1);
+		for (int i = 0; i < Bd.size(); i ++) {
+			boundary_indices[i] = Bd[i];
 		}
-		boundary_positions.resize(L.size(), 2);
+		boundary_positions.resize(Bd.size(), 2);
 		igl::map_vertices_to_circle(V, boundary_indices, boundary_positions);
 
 		// initialize
 		fixed_UV_indices.resize(2, 1);
 		fixed_UV_positions.resize(2, 2);
+
 		// find the two vertices with the "longest" topological distance
-		int max_dist = 0;
-		int offset = L.size() / 2;
-		for (int i = 0; i < L.size(); i ++) {
-			int idx1 = L[i];
-			int idx2 = L[(i + offset) % L.size()]
-			double dist = (V.row(idx1) - V.row(idx2)).norm();
-			if (dist > max_dist) {
-				max_dist = dist;
-				fixed_UV_indices[0] = idx1;
-				fixed_UV_indices[1] = idx2;
-				fixed_UV_positions.row(0) = boundary_positions.row(i);
-				fixed_UV_positions.row(1) = boundary_positions.row((i + offset) % L.size());
+		// consider all points
+		set<int> targets;
+		vector<vector<int>> VV;
+		VectorXd min_distance;
+		vector<double> max_distance;
+		vector<int> max_distance_idx;
+		VectorXi previous;
+		igl::adjacency_list(F, VV);
+
+		for (int source = 0; source < V.rows(); source ++) {
+			igl::dijkstra(source, targets, VV, min_distance, previous);
+			int idx;
+			max_distance.push_back(min_distance.maxCoeff(&idx));
+			max_distance_idx.push_back(idx);
+		}
+
+		double maxDist = 0;
+		int maxIdx;
+		int s, t;
+		for (int i = 0; i < V.rows(); i ++) {
+			if (max_distance[i] > maxDist) {
+				maxDist = max_distance[i];
+				maxIdx = max_distance_idx[i];
+				s = i;
+				t = maxIdx;
 			}
 		}
+
+		fixed_UV_indices << s, t;
+		fixed_UV_positions << -1, 0, 1, 0;
 	}
 
 	ConvertConstraintsToMatrixForm(fixed_UV_indices, fixed_UV_positions, C, d);
@@ -217,14 +231,17 @@ void computeParameterization(int type) {
 		// Add your code for computing uniform Laplacian for Tutte parameterization
 		// Hint: use the adjacency matrix of the mesh
 
-		Eigen::SparseMatrix<int> M;		// adjacency matrix of the mesh
-		igl::adjacency_matrix(F, M);
-		Eigen::SparseVector<int> S;		// sum of each row of the adjacency matrix
-		igl::sum(M, 1, S);		// dim = 1: sum along each row
-		Eigen::SparseMatrix<int> D;		// matrix with the elements of S on the diagonal
-		igl::diag(M, D);
+		A.resize(2*V.rows(), 2*V.rows());
+		b.setZero(2 * V.rows());
 
-		Eigen::SparseMarix<int> L = M - D;
+		SparseMatrix<int> M;		// adjacency matrix of the mesh
+		igl::adjacency_matrix(F, M);
+		SparseVector<int> S;		// sum of each row of the adjacency matrix
+		igl::sum(M, 1, S);		// dim = 1: sum along each row
+		SparseMatrix<int> D;		// matrix with the elements of S on the diagonal
+		igl::diag(S, D);
+
+		SparseMatrix<int> L = M - D;
 
 		// construct A by putting two L's on the diagonal
 		for (int i = 0; i < L.rows(); i ++) {
@@ -239,7 +256,10 @@ void computeParameterization(int type) {
 		// Add your code for computing cotangent Laplacian for Harmonic parameterization
 		// Use can use a function "cotmatrix" from libIGL, but ~~~~***READ THE DOCUMENTATION***~~~~
 
-		Eigen::SparseMatrix<int> L;		// cotangent matrix of the mesh
+		A.resize(2*V.rows(), 2*V.rows());
+		b.setZero(2 * V.rows());
+
+		SparseMatrix<double> L;		// cotangent matrix of the mesh
 		igl::cotmatrix(V, F, L);
 
 		// construct A by putting two L's on the diagonal
@@ -249,49 +269,146 @@ void computeParameterization(int type) {
 				A.insert(L.rows() + i, L.rows() + j) = L.coeff(i, j);
 			}
 		}
-		
-		b.setZero(2 * V.rows());
 	}
 
 	if (type == '3') {
 		// Add your code for computing the system for LSCM parameterization
 		// Note that the libIGL implementation is different than what taught in the tutorial! Do not rely on it!!
 
+		A.resize(2*V.rows(), 2*V.rows());
+		b.setZero(2 * V.rows());
+
 		// compute surface gradients
-		Eigen::SparseMatrix<double> Dx, Dy;
+		SparseMatrix<double> Dx, Dy;
 		computeSurfaceGradientMatrix(Dx, Dy);
+		SparseMatrix<double> DxT = Dx.transpose();
+		SparseMatrix<double> DyT = Dy.transpose();
 
 		// compute 2*area for the triangles
-		Eigen::VectorXd DA;
-		igl::doublearea(V, F, DA);
+		VectorXd DAreaVec;
+		igl::doublearea(V, F, DAreaVec);
+
+		// compute area weight matrix
+		Eigen::SparseMatrix<double> DAreaMat;
+		DAreaMat.resize(F.rows(), F.rows());
+		for (int i = 0; i < F.rows(); i ++) {
+			DAreaMat.insert(i, i) = DAreaVec[i];
+		}
 
 		// construct linear system
-		Eigen::SparseMatrix<double> linearSys;
-		linearSys.resize(F.rows(),F.rows());
-		vector<Eigen::Triplet<double> > triplets;
-		for (int i = 0; i < F.rows(); i++)
-			triplets.push_back(Eigen::Triplet<double>(i,i,DA[i]));
-		linearSys.setFromTriplets(triplets.begin(), triplets.end());
-
-		// b = 0
-		b.setZero(2 * V.rows());
+		SparseMatrix<double> A11, A12, A21, A22;
+		A11 = DxT*DAreaMat*Dx + DyT*DAreaMat*Dy;
+		A12 = -DxT*DAreaMat*Dy + DyT*DAreaMat*Dx;
+		A21 = -DyT*DAreaMat*Dx + DxT*DAreaMat*Dy;
+		A22 = DxT*DAreaMat*Dx + DyT*DAreaMat*Dy;
+		SparseMatrix<double> A_1, A_2;
+		igl::cat(1, A11, A21, A_1);
+		igl::cat(1, A12, A22, A_2);
+		igl::cat(2, A_1, A_2, A);
 	}
 
 	if (type == '4') {
 		// Add your code for computing ARAP system and right-hand side
 		// Implement a function that computes the local step first
 		// Then construct the matrix with the given rotation matrices
+
+		A.resize(2*V.rows(), 2*V.rows());
+		b.setZero(2 * V.rows());
+
+		// initialize (press '3')
+		// compute Jacobians (Dx * u, Dy * u; Dx * v, Dy * v)
+		SparseMatrix<double> Dx, Dy;
+		computeSurfaceGradientMatrix(Dx, Dy);
+		SparseMatrix<double> DxT = Dx.transpose();
+		SparseMatrix<double> DyT = Dy.transpose();
+		VectorXd D11, D12, D21, D22;
+		D11 = Dx*UV.col(0);		// Dx * u
+		D12 = Dy*UV.col(0);		// Dy * u
+		D21 = Dx*UV.col(1);		// Dx * v
+		D22 = Dy*UV.col(1);		// Dy * v
+
+		// compute closest rotation for each face
+		MatrixXd R;
+		R.resize(F.rows(), 4);
+		for (int i = 0; i < F.rows(); i ++) {
+			Eigen::Matrix2d J;		// Jacobian of face i
+			J.resize(2, 2);
+			J << D11[i], D12[i], D21[i], D22[i];
+
+			Eigen::Matrix2d U, S, V;	// USV.T decomposition
+			SSVD2x2(J, U, S, V);
+
+			Eigen::Matrix2d tempR;		// closest rotation of face i
+			tempR.resize(2, 2);
+			Eigen::Matrix2d UVt; 
+			UVt = U*V.transpose();
+			if (UVt.determinant() >= 0) {
+				tempR = UVt;
+			} else {
+				Eigen::Matrix2d temp;
+				temp.resize(2, 2);
+				temp << 1, 0, 0, -1;
+				tempR = U*temp*V.transpose();
+			}
+			R.row(i) << tempR(0, 0), tempR(0, 1), tempR(1, 0), tempR(1, 1);
+		}
+
+		// construct linear system (copy from '3')
+		VectorXd DAreaVec;
+		igl::doublearea(V, F, DAreaVec);
+
+		Eigen::SparseMatrix<double> AreaMat;
+		AreaMat.resize(F.rows(), F.rows());
+		for (int i = 0; i < F.rows(); i ++) {
+			AreaMat.insert(i, i) = (DAreaVec[i] / 2.0);
+		}
+
+		SparseMatrix<double> A11, A12, A21, A22;
+		A11 = DxT*AreaMat*Dx + DyT*AreaMat*Dy;
+		A22 = DxT*AreaMat*Dx + DyT*AreaMat*Dy;
+		A12.resize(V.rows(), V.rows());
+		A21.resize(V.rows(), V.rows());
+		SparseMatrix<double> A_1, A_2;
+		igl::cat(1, A11, A21, A_1);
+		igl::cat(1, A12, A22, A_2);
+		igl::cat(2, A_1, A_2, A);
+
+		VectorXd b1, b2;
+		b1 = DxT*AreaMat*R.col(0) + DyT*AreaMat*R.col(1);
+		b2 = DxT*AreaMat*R.col(2) + DyT*AreaMat*R.col(3);
+		b.resize(2*V.rows());
+		igl::cat(1, b1, b2, b);
 	}
 
 	// Solve the linear system.
 	// Construct the system as discussed in class and the assignment sheet
 	// Use igl::cat to concatenate matrices
 	// Use Eigen::SparseLU to solve the system. Refer to tutorial 3 for more detail
+	Eigen::SparseMatrix<double> ML, MR;
+	Eigen::SparseMatrix<double, ColMajor> Zero, Mat;
+	Zero.resize(C.rows(), C.rows());
+	igl::cat(1, A, C, ML);
+	Eigen::SparseMatrix<double> CT = C.transpose();
+	igl::cat(1, CT, Zero, MR);
+	igl::cat(2, ML, MR, Mat);
+
+	SparseLU<SparseMatrix<double, ColMajor>, COLAMDOrdering<int> > solver;
+	VectorXd bd;
+	bd.resize(b.rows() + d.rows(), 1);
+	bd << b, d;
+	solver.analyzePattern(Mat);
+	solver.factorize(Mat);
+	VectorXd uvlamda;
+	uvlamda = solver.solve(bd);
 
 	// The solver will output a vector
 	UV.resize(V.rows(), 2);
-	//UV.col(0) =
-	//UV.col(1) =
+	UV.col(0) = uvlamda.block(0, 0, V.rows(), 1);
+	UV.col(1) = uvlamda.block(V.rows(), 0, V.rows(), 1);
+}
+
+void colorCodeDistortion() {
+	
 }
 
 bool callback_key_pressed(Viewer &viewer, unsigned char key, int modifiers) {
@@ -303,8 +420,9 @@ bool callback_key_pressed(Viewer &viewer, unsigned char key, int modifiers) {
 		computeParameterization(key);
 		break;
 	case '5':
-			// Add your code for detecting and displaying flipped triangles in the
-			// UV domain here
+		// Add your code for detecting and displaying flipped triangles in the
+		// UV domain here
+		visualizeDistortion();
 		break;
 	case '+':
 		TextureResolution /= 2;
