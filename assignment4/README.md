@@ -62,7 +62,9 @@ Edit this 'README.md' file to report all your results. You only need to update t
 | mtd \ metric      | Conformal (angle) |    Authalic (area)  |  Isometric  (length)    |
 | :--------------:  | ----------------- | ------------------- | ----------------------- |
 | LSCM (free)       |<img align="center" src="./res/cathead_lscm_angle.png" width="300">| <img align="center"  src="./res/cathead_lscm_area.png" width="300"> | <img align="center"  src="./res/cathead_lscm_length.png" width="300"> |
+| LSCM (free)       |<img align="center" src="./res/cathead_lscm_angle_param.png" width="300">| <img align="center"  src="./res/cathead_lscm_area_param.png" width="300"> | <img align="center"  src="./res/cathead_lscm_length_param.png" width="300"> |
 | ARAP (free) |<img align="center" src="./res/cathead_arap_angle.png" width="300">| <img align="center"  src="./res/cathead_arap_area.png" width="300"> |<img align="center"  src="./res/cathead_arap_length.png" width="300"> |
+| ARAP (free) |<img align="center" src="./res/cathead_arap_angle_param.png" width="300">| <img align="center"  src="./res/cathead_arap_area_param.png" width="300"> |<img align="center"  src="./res/cathead_arap_length_param.png" width="300"> |
 
 
 #### hemisphere
@@ -70,4 +72,6 @@ Edit this 'README.md' file to report all your results. You only need to update t
 | mtd \ metric      | Conformal (angle) |    Authalic (area)  |  Isometric  (length)    |
 | :--------------:  | ----------------- | ------------------- | ----------------------- |
 | LSCM (free)       |<img align="center" src="./res/hemi_lscm_angle.png" width="300">| <img align="center"  src="./res/hemi_lscm_area.png" width="300"> | <img align="center"  src="./res/hemi_lscm_length.png" width="300"> |
+| LSCM (free)       |<img align="center" src="./res/hemi_lscm_angle_param.png" width="300">| <img align="center"  src="./res/hemi_lscm_area_param.png" width="300"> | <img align="center"  src="./res/hemi_lscm_length_param.png" width="300"> |
 | ARAP (free) |<img align="center" src="./res/hemi_arap_angle.png" width="300">| <img align="center"  src="./res/hemi_arap_area.png" width="300"> |<img align="center"  src="./res/hemi_arap_length.png" width="300"> |
+| ARAP (free) |<img align="center" src="./res/hemi_arap_angle_param.png" width="300">| <img align="center"  src="./res/hemi_arap_area_param.png" width="300"> |<img align="center"  src="./res/hemi_arap_length_param.png" width="300"> |

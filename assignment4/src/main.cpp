@@ -187,7 +187,7 @@ void computeParameterization(int type) {
 		// fix two UV vertices. This should be done in an intelligent way. Hint: The two fixed vertices should be the two most distant one on the mesh.
 		// so far: two extreme points of the boundary loop
 
-		// find the longest boundary loop
+		// find the longest boundary loop (not used, go brute force)
 		VectorXi boundary_indices;
 		MatrixXd boundary_positions;
 
@@ -257,23 +257,23 @@ void computeParameterization(int type) {
 		SparseMatrix<int> L = M - D;
 
 		// construct A by putting two L's on the diagonal
-		// for (int i = 0; i < L.rows(); i ++) {
-		// 	for (int j = 0; j < L.row(i).size(); j ++) {
-		// 		A.insert(i, j) = L.coeff(i, j);
-		// 		A.insert(L.rows() + i, L.rows() + j) = L.coeff(i, j);
-		// 	}
-		// }
-		
-		// use triplet to improve efficiency for octo_cut2 case
-		vector<Eigen::Triplet<int> > a;
-		A.resize(2 * V.rows(), 2 * V.rows());
-		for (int i = 0; i < L.outerSize(); i++) {
-			for (SparseMatrix<int>::InnerIterator it(L, i); it; ++it) {
-				a.push_back(Eigen::Triplet<int>(it.row(), it.col(), it.value()));
-				a.push_back(Eigen::Triplet<int>(it.row() + L.rows(), it.col() + L.rows(), it.value()));
+		for (int i = 0; i < L.rows(); i ++) {
+			for (int j = 0; j < L.row(i).size(); j ++) {
+				A.insert(i, j) = L.coeff(i, j);
+				A.insert(L.rows() + i, L.rows() + j) = L.coeff(i, j);
 			}
 		}
-		A.setFromTriplets(a.begin(), a.end());
+		
+		// use triplet to improve efficiency for octo_cut2 case
+		// vector<Eigen::Triplet<int> > a;
+		// A.resize(2 * V.rows(), 2 * V.rows());
+		// for (int i = 0; i < L.outerSize(); i++) {
+		// 	for (SparseMatrix<int>::InnerIterator it(L, i); it; ++it) {
+		// 		a.push_back(Eigen::Triplet<int>(it.row(), it.col(), it.value()));
+		// 		a.push_back(Eigen::Triplet<int>(it.row() + L.rows(), it.col() + L.rows(), it.value()));
+		// 	}
+		// }
+		// A.setFromTriplets(a.begin(), a.end());
 	}
 
 	if (type == '2') {
@@ -287,22 +287,22 @@ void computeParameterization(int type) {
 		igl::cotmatrix(V, F, L);
 
 		// construct A by putting two L's on the diagonal
-		// for (int i = 0; i < L.rows(); i ++) {
-		// 	for (int j = 0; j < L.row(i).size(); j ++) {
-		// 		A.insert(i, j) = L.coeff(i, j);
-		// 		A.insert(L.rows() + i, L.rows() + j) = L.coeff(i, j);
-		// 	}
-		// }
-
-		// use triplet to improve efficiency for octo_cut2 case
-		vector<Eigen::Triplet<double> > a;
-		for (int i = 0; i < L.outerSize(); i++) {
-			for (SparseMatrix<double>::InnerIterator it(L, i); it; ++it) {
-				a.push_back(Eigen::Triplet<double>(it.row(), it.col(), it.value()));
-				a.push_back(Eigen::Triplet<double>(it.row()+L.rows(), it.col()+L.rows(), it.value()));
+		for (int i = 0; i < L.rows(); i ++) {
+			for (int j = 0; j < L.row(i).size(); j ++) {
+				A.insert(i, j) = L.coeff(i, j);
+				A.insert(L.rows() + i, L.rows() + j) = L.coeff(i, j);
 			}
 		}
-		A.setFromTriplets(a.begin(), a.end());
+
+		// use triplet to improve efficiency for octo_cut2 case
+		// vector<Eigen::Triplet<double> > a;
+		// for (int i = 0; i < L.outerSize(); i++) {
+		// 	for (SparseMatrix<double>::InnerIterator it(L, i); it; ++it) {
+		// 		a.push_back(Eigen::Triplet<double>(it.row(), it.col(), it.value()));
+		// 		a.push_back(Eigen::Triplet<double>(it.row()+L.rows(), it.col()+L.rows(), it.value()));
+		// 	}
+		// }
+		// A.setFromTriplets(a.begin(), a.end());
 	}
 
 	if (type == '3') {
