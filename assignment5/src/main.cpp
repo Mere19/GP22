@@ -86,7 +86,7 @@ bool default_algo = true;
 // const char * items[]{"smooth", "deformed smooth", "deformed", };
 
 Eigen::VectorXi free_vertices;
-Eigen::MatrixXd Vs, Vds, Vd;
+Eigen::MatrixXd Vs, Vds, Vd_hf, Vd_d;
 Eigen::SparseMatrix<double> Lw, M, Minv, Aff, Afc, nAff, nAfc;
 Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>, Eigen::RowMajor> solver;
 Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>, Eigen::RowMajor> non_default_solver;
@@ -184,7 +184,7 @@ void compute_displacements() {
 void transfer_high_frequency_details() {
   // 4: transfer high frequency details
   // Vd = Vds;
-  Vd.resize(V.rows(), 3);
+  Vd_hf.resize(V.rows(), 3);
   Nv.setZero();
   igl::per_vertex_normals(Vds, F, Nv);   // compute local basis for B'
   for (int i = 0; i < V.rows(); i ++) {
@@ -209,7 +209,7 @@ void transfer_high_frequency_details() {
     // Eigen::Matrix3d fromLocalTranspose = fromLocal.transpose();    // [Nv.T Ne.T Nc.T]
     // Eigen::RowVector3d d = (toWorld * D.row(i).transpose()).transpose();
     Eigen::RowVector3d d = D(i, 0) * nv + D(i, 1) * ne + D(i, 2) * nc;
-    Vd.row(i) = Vds.row(i) + d;
+    Vd_hf.row(i) = Vds.row(i) + d;
     // cout << (Vd.row(i) == V.row(i)) << endl;
   }
 }
@@ -324,9 +324,9 @@ void transfer_deformation() {
   Eigen::MatrixXd Vf_deformed = non_default_solver.solve(RHS);
   // cout << "Vf_deformed dimension: " << Vf_deformed.rows() << " x " << Vf_deformed.cols() << endl;
   // cout << "free_vertices dimension: " << free_vertices.rows() << " x " << free_vertices.cols() << endl;
-  Vd = Vds;
-  igl::slice_into(Vf_deformed, free_vertices, 1, Vd);
-  igl::slice_into(handle_vertex_positions, handle_vertices, 1, Vd);
+  Vd_d = Vds;
+  igl::slice_into(Vf_deformed, free_vertices, 1, Vd_d);
+  igl::slice_into(handle_vertex_positions, handle_vertices, 1, Vd_d);
 }
 
 bool solve(Viewer& viewer)
@@ -341,19 +341,19 @@ bool solve(Viewer& viewer)
   igl::slice_into(handle_vertex_positions, handle_vertices, 1, Vds);
   igl::slice_into(Vf_deformed, free_vertices, 1, Vds);
 
-  if (default_algo) {
+  // if (default_algo) {
     transfer_high_frequency_details();
-  } else {
+  // } else {
     compute_source_deformation_gradient();
     transfer_deformation();
-  }
+  // }
 
   if (mesh == 0) {    // smooth mesh
     V = Vs;
   } else if (mesh == 1) {   // deformed smooth mesh
     V = Vds;
   } else if (mesh == 2) {   // deformed mesh
-    V = Vd;
+    V = Vd_hf;
   }
 
   Eigen::MatrixXd N;
@@ -470,9 +470,25 @@ int main(int argc, char *argv[])
             viewer.data().set_normals(N);
           }
 
-          if (ImGui::Button("Deformed Mesh", ImVec2(-1,0)))
+          // if (ImGui::Button("Deformed Mesh", ImVec2(-1,0)))
+          // {
+          //   V = Vd;
+          //   Eigen::MatrixXd N;
+          //   igl::per_vertex_normals(V, F, N);
+          //   viewer.data().set_normals(N);
+          // }
+
+          if (ImGui::Button("High-frequency Mesh", ImVec2(-1,0)))
           {
-            V = Vd;
+            V = Vd_hf;
+            Eigen::MatrixXd N;
+            igl::per_vertex_normals(V, F, N);
+            viewer.data().set_normals(N);
+          }
+
+          if (ImGui::Button("Deformation Mesh", ImVec2(-1,0)))
+          {
+            V = Vd_d;
             Eigen::MatrixXd N;
             igl::per_vertex_normals(V, F, N);
             viewer.data().set_normals(N);
@@ -738,9 +754,9 @@ void onNewHandleID()
   prefactor();
   remove_high_frequency_details();
 
-  if (default_algo) {
+  // if (default_algo) {
     compute_displacements();
-  } else {
+  // } else {
     // cout << "1" << endl;
     compute_gradient_operator();
     // cout << "2" << endl;
@@ -748,7 +764,7 @@ void onNewHandleID()
     // cout << "3" << endl;
     non_default_prefactor();
     // cout << "4" << endl;
-  }
+  // }
 }
 
 void applySelection()

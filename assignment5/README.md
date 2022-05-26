@@ -24,7 +24,7 @@ Edit this 'README.md' file to report all your results. You only need to update t
 | woody-lo       |<img align="center" src="./res/woody_lo_S.png" width="300">| <img align="center"  src="./res/woody_lo_B.png" width="300"> |<img align="center" src="./res/woody_lo_Bp.png" width="300">| <img align="center"  src="./res/woody_lo_Sp.png" width="300"> |
 | woody-hi       |<img align="center" src="./res/woody_hi_S.png" width="300">| <img align="center"  src="./res/woody_hi_B.png" width="300"> |<img align="center" src="./res/woody_hi_Bp.png" width="300">| <img align="center"  src="./res/woody_hi_Sp.png" width="300"> |
 | hand           |<img align="center" src="./res/hand_S.png" width="300">| <img align="center"  src="./res/hand_B.png" width="300"> |<img align="center" src="./res/hand_Bp.png" width="300">| <img align="center"  src="./res/hand_Sp.png" width="300"> |
-| cylinder       |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
+| cylinder       |<img align="center" src="./res/cylinder_S.png" width="300">| <img align="center"  src="./res/cylinder_B.png" width="300"> |<img align="center" src="./res/cylinder_Bp.png" width="300">| <img align="center"  src="./res/cylinder_Sp.png" width="300"> |
 
 ### 1.5 Real time mesh editing
 
@@ -41,10 +41,10 @@ Show real time mesh editing using animated gifs or short videos. *Max 15 seconds
 ### 2 Deformation transfer
 | model name     | High-freq detail transfer             | Deformation transfer                 |
 | :-----------:  | ------------------------------------- |------------------------------------- |
-| bar            |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
-| bumpy_plane    |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
-| camel_head     |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
-| cactus         |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
+| bar            |<img align="center" src="./res/bar_Sp_hf.png" width="300">| <img align="center"  src="./res/bar_Sp_d.png" width="300"> |
+| bumpy_plane    |<img align="center" src="./res/bumpy_plane_Sp_hf.png" width="300">| <img align="center"  src="./res/bumpy_plane_Sp_d.png" width="300"> |
+| camel_head     |<img align="center" src="./res/camel_head_Sp_hf.png" width="300">| <img align="center"  src="./res/camel_head_Sp_d.png" width="300"> |
+| cactus         |<img align="center" src="./res/cactus_Sp_hf.png" width="300">| <img align="center"  src="./res/cactus_Sp_d.png" width="300"> |
 
 
 #### Observations
