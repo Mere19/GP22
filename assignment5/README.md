@@ -51,5 +51,5 @@ Show real time mesh editing using animated gifs or short videos. *Max 15 seconds
 
 |      | High-freq detail transfer             | Deformation transfer                 |
 | :-----------:  | ------------------------------------- |------------------------------------- |
-| Your Comments  |xxxxxxxxxxxxxxxxxxx                    | xxxxxxxxxxxxxxxxxxxxxxxxxxxx         |
+| Your Comments  |xxxxxxxxxxxxxxxxxxx                    | It can be seen from the above examples that deformation transfer performs better at preserving the smoothness of the deformed mesh. More importantly, deformation transfer does not lead to self-intersection, while high-frequency detail transfer method may lead to self-intersections when the surface can locally not be properly approximated by a height field.         |
 
