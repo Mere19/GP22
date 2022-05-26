@@ -167,17 +167,17 @@ void compute_displacements() {
     // fromLocal.row(0) = Nv.row(i);
     // fromLocal.row(1) = Ne.row(i);
     // fromLocal.row(2) = Nc.row(i);
-    // toLocal.row(0) = Nv.row(i);
-    // toLocal.row(1) = Ne.row(i);
-    // toLocal.row(2) = Nc.row(i);
+    toLocal.row(0) = Nv.row(i);
+    toLocal.row(1) = Ne.row(i);
+    toLocal.row(2) = Nc.row(i);
     // fromLocal << Nv.row(i), Ne.row(i), Nc.row(i);
     // Eigen::Matrix3d fromLocalTranspose = fromLocal.transpose();    // [Nv.T Ne.T Nc.T]
     // cout << fromLocal << endl;
     // Eigen::Matrix3d fromWorld = fromLocal.inverse();
-    // D.row(i) = (toLocal * tempDisplacement.transpose()).transpose();
-    D(i, 0) = tempDisplacement.dot(Nv.row(i));
-    D(i, 1) = tempDisplacement.dot(Ne.row(i));
-    D(i, 2) = tempDisplacement.dot(Nc.row(i));
+    D.row(i) = (toLocal * tempDisplacement.transpose()).transpose();
+    // D(i, 0) = tempDisplacement.dot(Nv.row(i));
+    // D(i, 1) = tempDisplacement.dot(Ne.row(i));
+    // D(i, 2) = tempDisplacement.dot(Nc.row(i));
   }
 }
 
@@ -198,17 +198,17 @@ void transfer_high_frequency_details() {
     Eigen::RowVector3d nc = nv.cross(ne);
 
     // Eigen::Matrix3d fromLocal;    // add displacements back to B'
-    // Eigen::Matrix3d toLocal;
+    Eigen::Matrix3d toLocal;
     // fromLocal.row(0) = nv;
     // fromLocal.row(1) = ne;
     // fromLocal.row(2) = nc;
-    // toLocal.row(0) = nv;
-    // toLocal.row(1) = ne;
-    // toLocal.row(2) = nc;
-    // Eigen::Matrix3d toWorld = toLocal.inverse();
+    toLocal.row(0) = nv;
+    toLocal.row(1) = ne;
+    toLocal.row(2) = nc;
+    Eigen::Matrix3d toWorld = toLocal.inverse();
     // Eigen::Matrix3d fromLocalTranspose = fromLocal.transpose();    // [Nv.T Ne.T Nc.T]
-    // Eigen::RowVector3d d = (toWorld * D.row(i).transpose()).transpose();
-    Eigen::RowVector3d d = D(i, 0) * nv + D(i, 1) * ne + D(i, 2) * nc;
+    Eigen::RowVector3d d = (toWorld * D.row(i).transpose()).transpose();
+    // Eigen::RowVector3d d = D(i, 0) * nv + D(i, 1) * ne + D(i, 2) * nc;
     Vd_hf.row(i) = Vds.row(i) + d;
     // cout << (Vd.row(i) == V.row(i)) << endl;
   }
@@ -231,17 +231,17 @@ void compute_gradient_operator() {
   Eigen::VectorXd rows_permuted, cols_permuted;
   rows_permuted.resize(3*fnum);
   cols_permuted.resize(V.rows());
-  // for (int i = 0, j = 0; i < 3*fnum, j < fnum; i +=3, j ++) {
-  //   rows_permuted[i] = j;
-  //   rows_permuted[i + 1] = j + fnum;
-  //   rows_permuted[i + 2] = j + 2*fnum;
-  // }
-  for(int i = 0; i < F.rows(); i++){
-    // area_vec_resize[3 * i] = area_vec_resize[3 * i + 1] = area_vec_resize[3 * i + 2] = area_vec[i];
-    rows_permuted[3*i] = i;
-    rows_permuted[3*i + 1] = i + F.rows();
-    rows_permuted[3*i + 2] = i + 2 * F.rows();
+  for (int i = 0, j = 0; i < 3*fnum, j < fnum; i +=3, j ++) {
+    rows_permuted[i] = j;
+    rows_permuted[i + 1] = j + fnum;
+    rows_permuted[i + 2] = j + 2*fnum;
   }
+  // for(int i = 0; i < F.rows(); i++){
+  //   // area_vec_resize[3 * i] = area_vec_resize[3 * i + 1] = area_vec_resize[3 * i + 2] = area_vec[i];
+  //   rows_permuted[3*i] = i;
+  //   rows_permuted[3*i + 1] = i + F.rows();
+  //   rows_permuted[3*i + 2] = i + 2 * F.rows();
+  // }
   for (int i = 0; i < V.rows(); i ++) {
     cols_permuted[i] = i;
   }
