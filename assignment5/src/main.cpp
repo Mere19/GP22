@@ -9,6 +9,7 @@
 #include <igl/grad.h>
 #include <igl/doublearea.h>
 #include <igl/diag.h>
+#include <igl/per_vertex_normals.h>
 
 #include "Lasso.h"
 #include "Colors.h"
@@ -76,8 +77,12 @@ void onNewHandleID();
 void applySelection();
 
 // for visualization
+// int mesh = 1;
+// enum MeshMode { SMOOTH, DEFORMED_SMOOTH, DEFORMED, ORIGINAL };
+// MeshMode mesh_mode = ORIGINAL;
+// int mesh = static_cast<int>(mesh_mode);
 int mesh = 2;
-bool default_algo = false;
+bool default_algo = true;
 // const char * items[]{"smooth", "deformed smooth", "deformed", };
 
 Eigen::VectorXi free_vertices;
@@ -351,6 +356,10 @@ bool solve(Viewer& viewer)
     V = Vd;
   }
 
+  Eigen::MatrixXd N;
+  igl::per_vertex_normals(V, F, N);
+  viewer.data().set_normals(N);
+
   return true;
 };
 
@@ -436,8 +445,40 @@ int main(int argc, char *argv[])
           {
             handle_id.setConstant(V.rows(),1,-1);
           }
-          if(ImGui::Checkbox("Deformation Transfer", &use_deformation_transfer)){}
-          ImGui::Combo("Mesh", &mesh, "smoothed\0smoothed_deformed\0deformed\0");
+
+          if (ImGui::Button("Original Mesh", ImVec2(-1,0)))
+          {
+            V = V_cp;
+            Eigen::MatrixXd N;
+            igl::per_vertex_normals(V, F, N);
+            viewer.data().set_normals(N);
+          }
+
+          if (ImGui::Button("Smooth Mesh", ImVec2(-1,0)))
+          {
+            V = Vs;
+            Eigen::MatrixXd N;
+            igl::per_vertex_normals(V, F, N);
+            viewer.data().set_normals(N);
+          }
+
+          if (ImGui::Button("Deformed Smooth Mesh", ImVec2(-1,0)))
+          {
+            V = Vds;
+            Eigen::MatrixXd N;
+            igl::per_vertex_normals(V, F, N);
+            viewer.data().set_normals(N);
+          }
+
+          if (ImGui::Button("Deformed Mesh", ImVec2(-1,0)))
+          {
+            V = Vd;
+            Eigen::MatrixXd N;
+            igl::per_vertex_normals(V, F, N);
+            viewer.data().set_normals(N);
+          }
+          // if(ImGui::Checkbox("Deformation Transfer", &use_deformation_transfer)){}
+          // ImGui::Combo("Mesh", &mesh, "SMOOTH\0DEFORMED_SMOOTH\0DEFORMED\0ORIGINAL\0");
     }
   };
 

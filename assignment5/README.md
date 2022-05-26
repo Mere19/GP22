@@ -21,9 +21,9 @@ Edit this 'README.md' file to report all your results. You only need to update t
 ### 1.1 - 1.4 Multiresolution Mesh Editing
 | model name     | S     |  B    |  B'   |  S'   |
 | :-----------:  | ----- | ----- | ----- | ----- |
-| woody-lo       |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
-| woody-hi       |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
-| hand           |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
+| woody-lo       |<img align="center" src="./res/woody_lo_S.png" width="300">| <img align="center"  src="./res/woody_lo_B.png" width="300"> |<img align="center" src="./res/woody_lo_Bp.png" width="300">| <img align="center"  src="./res/woody_lo_Sp.png" width="300"> |
+| woody-hi       |<img align="center" src="./res/woody_hi_S.png" width="300">| <img align="center"  src="./res/woody_hi_B.png" width="300"> |<img align="center" src="./res/woody_hi_Bp.png" width="300">| <img align="center"  src="./res/woody_hi_Sp.png" width="300"> |
+| hand           |<img align="center" src="./res/hand_S.png" width="300">| <img align="center"  src="./res/hand_B.png" width="300"> |<img align="center" src="./res/hand_Bp.png" width="300">| <img align="center"  src="./res/hand_Sp.png" width="300"> |
 | cylinder       |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |<img align="center" src="./res/placeholder.png" width="300">| <img align="center"  src="./res/placeholder.png" width="300"> |
 
 ### 1.5 Real time mesh editing
@@ -32,10 +32,10 @@ Show real time mesh editing using animated gifs or short videos. *Max 15 seconds
 
 | model name     |   S' - real time   |
 | :-----------:  | -----  |
-| bar            | <img align="center"  src="./res/placeholder.gif" width="300"> |
-| bumpy_plane    | <img align="center"  src="./res/placeholder.gif" width="300"> |
-| camel_head     | <img align="center"  src="./res/placeholder.gif" width="300"> |
-| cactus         | <img align="center"  src="./res/placeholder.gif" width="300"> |
+| bar            | <img align="center"  src="./res/bar.gif" width="300"> |
+| bumpy_plane    | <img align="center"  src="./res/bumpy_plane.gif" width="300"> |
+| camel_head     | <img align="center"  src="./res/camel_head.gif" width="300"> |
+| cactus         | <img align="center"  src="./res/cactus.gif" width="300"> |
 
 
 ### 2 Deformation transfer
