@@ -5,6 +5,10 @@
 #include <imgui/imgui.h>
 #include <igl/slice_into.h>
 #include <igl/rotate_by_quat.h>
+#include <igl/invert_diag.h>
+#include <igl/grad.h>
+#include <igl/doublearea.h>
+#include <igl/diag.h>
 
 #include "Lasso.h"
 #include "Colors.h"
@@ -71,10 +75,281 @@ bool callback_key_down(Viewer& viewer, unsigned char key, int modifiers);
 void onNewHandleID();
 void applySelection();
 
+// for visualization
+int mesh = 2;
+bool default_algo = false;
+// const char * items[]{"smooth", "deformed smooth", "deformed", };
+
+Eigen::VectorXi free_vertices;
+Eigen::MatrixXd Vs, Vds, Vd;
+Eigen::SparseMatrix<double> Lw, M, Minv, Aff, Afc, nAff, nAfc;
+Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>, Eigen::RowMajor> solver;
+Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>, Eigen::RowMajor> non_default_solver;
+
+void compute_free_vertices() {
+  int c = 0;
+  free_vertices.resize(V.rows() - handle_vertices.size());
+  for (int i = 0; i < V.rows(); i ++) {
+    if (handle_id[i] == -1) {
+      free_vertices[c ++] = i;
+    }
+  }
+}
+
+void prefactor() {
+  igl::cotmatrix(V, F, Lw);
+  igl::massmatrix(V, F, igl::MASSMATRIX_TYPE_DEFAULT, M);
+  igl::invert_diag(M, Minv);
+  Eigen::SparseMatrix<double> A = Lw * Minv * Lw;    // compute A = Lw * Minv * Lw
+
+  igl::slice(A, free_vertices, free_vertices, Aff);
+  igl::slice(A, free_vertices, handle_vertices, Afc);
+
+  solver.compute(Aff);    // left hand side
+}
+
+void remove_high_frequency_details() {
+  // 2: remove high-frequency details
+  Vs = V;   // smoothed mesh
+  Eigen::MatrixXd Vc = igl::slice(V, handle_vertices, 1);
+  Eigen::MatrixXd Vf_smoothed = solver.solve(-Afc * Vc);    // right hand side
+  igl::slice_into(Vf_smoothed, free_vertices, 1, Vs);
+}
+
+Eigen::MatrixXd Nv, Ne, Nc, D;
+Eigen::VectorXi n_list;
+void compute_displacements() {
+  // 4: compute displacement from V to Vs
+  // compute local basis for B
+  // Eigen::MatrixXd Nv;    // (unit?) vertex normal
+  igl::per_vertex_normals(Vs, F, Nv);
+  // Eigen::MatrixXd Ne;   // longest projection of incident edges on the tangent plane
+  Ne.resize(Vs.rows(), 3);
+  // Eigen::MatrixXd Nc;   // cross product of Nv and Nc
+  Nc.resize(Vs.rows(), 3);
+  
+  // Eigen::VectorXi n_list;   // store the neighbour of the longest edge
+  n_list.resize(V.rows());
+
+  std::vector<std::vector<int>> adj_list;   // find the longest edge
+  igl::adjacency_list(F, adj_list);
+  for (int i = 0; i < V.rows(); i ++) {
+    double maxNorm = -1;
+    Eigen::RowVector3d nv = Nv.row(i);
+    Eigen::RowVector3d ne;
+    for (int j : adj_list[i]) {
+      // Eigen::RowVector3d outgoingEdge = Vs.row(j) - Vs.row(i);
+      // Eigen::RowVector3d projectionEdge = nv.dot(outgoingEdge)/(nv.squaredNorm())*nv;
+      // Eigen::RowVector3d tempNe = outgoingEdge - projectionEdge;
+      Eigen::RowVector3d tempNe = (Vs.row(j) - (nv.dot(Vs.row(j) - Vs.row(i)) * nv)) - Vs.row(i);
+      if (tempNe.norm() > maxNorm) {
+        maxNorm = tempNe.norm();
+        tempNe.normalize();
+        ne = tempNe;
+        n_list[i] = j;
+      }
+    }
+    Ne.row(i) = ne;
+    Nc.row(i) = nv.cross(ne);
+  }
+
+  // Eigen::MatrixXd D;    // displacement vector in local basis
+  D.resize(V.rows(), 3);
+  for (int i = 0; i < V.rows(); i ++) {   // compute displacement and change basis
+    Eigen::RowVector3d tempDisplacement = V.row(i) - Vs.row(i);
+    // Eigen::Matrix3d fromLocal;
+    Eigen::Matrix3d toLocal;
+    // fromLocal.row(0) = Nv.row(i);
+    // fromLocal.row(1) = Ne.row(i);
+    // fromLocal.row(2) = Nc.row(i);
+    // toLocal.row(0) = Nv.row(i);
+    // toLocal.row(1) = Ne.row(i);
+    // toLocal.row(2) = Nc.row(i);
+    // fromLocal << Nv.row(i), Ne.row(i), Nc.row(i);
+    // Eigen::Matrix3d fromLocalTranspose = fromLocal.transpose();    // [Nv.T Ne.T Nc.T]
+    // cout << fromLocal << endl;
+    // Eigen::Matrix3d fromWorld = fromLocal.inverse();
+    // D.row(i) = (toLocal * tempDisplacement.transpose()).transpose();
+    D(i, 0) = tempDisplacement.dot(Nv.row(i));
+    D(i, 1) = tempDisplacement.dot(Ne.row(i));
+    D(i, 2) = tempDisplacement.dot(Nc.row(i));
+  }
+}
+
+void transfer_high_frequency_details() {
+  // 4: transfer high frequency details
+  // Vd = Vds;
+  Vd.resize(V.rows(), 3);
+  Nv.setZero();
+  igl::per_vertex_normals(Vds, F, Nv);   // compute local basis for B'
+  for (int i = 0; i < V.rows(); i ++) {
+    Eigen::RowVector3d nv = Nv.row(i);
+    int j = n_list[i];
+    // Eigen::RowVector3d outgoingEdge = Vds.row(j) - Vds.row(i);
+    // Eigen::RowVector3d projectionEdge = nv.dot(outgoingEdge)/(nv.squaredNorm())*nv;
+    // Eigen::RowVector3d ne = outgoingEdge - projectionEdge;
+    Eigen::RowVector3d ne = (Vds.row(j) - (nv.dot(Vds.row(j) - Vds.row(i)) * nv)) - Vds.row(i);
+    ne.normalize();
+    Eigen::RowVector3d nc = nv.cross(ne);
+
+    // Eigen::Matrix3d fromLocal;    // add displacements back to B'
+    // Eigen::Matrix3d toLocal;
+    // fromLocal.row(0) = nv;
+    // fromLocal.row(1) = ne;
+    // fromLocal.row(2) = nc;
+    // toLocal.row(0) = nv;
+    // toLocal.row(1) = ne;
+    // toLocal.row(2) = nc;
+    // Eigen::Matrix3d toWorld = toLocal.inverse();
+    // Eigen::Matrix3d fromLocalTranspose = fromLocal.transpose();    // [Nv.T Ne.T Nc.T]
+    // Eigen::RowVector3d d = (toWorld * D.row(i).transpose()).transpose();
+    Eigen::RowVector3d d = D(i, 0) * nv + D(i, 1) * ne + D(i, 2) * nc;
+    Vd.row(i) = Vds.row(i) + d;
+    // cout << (Vd.row(i) == V.row(i)) << endl;
+  }
+}
+
+Eigen::SparseMatrix<double> G;
+void compute_gradient_operator() {
+  // compute
+  igl::grad(V, F, G);
+
+  // permute
+  int fnum = F.rows();
+  Eigen::SparseMatrix<double> G_permuted;
+  G_permuted.resize(3*fnum, V.rows());
+  // for (int i = 0, j = 0; i < 3*fnum, j < fnum; i +=3, j ++) {
+  //   G_permuted.row(i) = G.row(j);
+  //   G_permuted.row(i + 1) = G.row(j + fnum);
+  //   G_permuted.row(i + 2) = G.row(j + 2 * fnum);
+  // }
+  Eigen::VectorXd rows_permuted, cols_permuted;
+  rows_permuted.resize(3*fnum);
+  cols_permuted.resize(V.rows());
+  // for (int i = 0, j = 0; i < 3*fnum, j < fnum; i +=3, j ++) {
+  //   rows_permuted[i] = j;
+  //   rows_permuted[i + 1] = j + fnum;
+  //   rows_permuted[i + 2] = j + 2*fnum;
+  // }
+  for(int i = 0; i < F.rows(); i++){
+    // area_vec_resize[3 * i] = area_vec_resize[3 * i + 1] = area_vec_resize[3 * i + 2] = area_vec[i];
+    rows_permuted[3*i] = i;
+    rows_permuted[3*i + 1] = i + F.rows();
+    rows_permuted[3*i + 2] = i + 2 * F.rows();
+  }
+  for (int i = 0; i < V.rows(); i ++) {
+    cols_permuted[i] = i;
+  }
+
+
+  igl::slice(G, rows_permuted, cols_permuted, G);
+
+  return ;
+}
+
+Eigen::VectorXd dblA;
+Eigen::SparseMatrix<double> Diag;
+void compute_weighting_matrix() {
+  igl::doublearea(V, F, dblA);
+  Eigen::VectorXd sglA = dblA / 2.0;
+  Eigen::VectorXd sglA_vec;
+  sglA_vec.resize(3*F.rows());
+
+  for (int i = 0, j = 0; i < 3*F.rows(), j < F.rows(); i += 3, j ++) {
+    sglA_vec[i] = sglA[j];
+    sglA_vec[i+1] = sglA[j];
+    sglA_vec[i+2] = sglA[j];
+  }
+
+  igl::diag(sglA_vec, Diag);
+
+  return;
+}
+
+Eigen::MatrixXd S;
+Eigen::MatrixXd Ns, Nds;
+void compute_source_deformation_gradient() {
+  S.resize(3 * F.rows(), 3);
+  igl::per_face_normals(Vs, F, Ns);
+  igl::per_face_normals(Vds, F, Nds);
+  for (int i = 0, j = 0; i < F.rows(), j < 3*F.rows(); i ++, j += 3) {   // for each face, compute the source deformation gradient S
+    Eigen::Vector3d q1 = Vs.row(F(i, 0));
+    Eigen::Vector3d q2 = Vs.row(F(i, 1));
+    Eigen::Vector3d q3 = Vs.row(F(i, 2));
+    Eigen::Vector3d q1_ = Vds.row(F(i, 0));
+    Eigen::Vector3d q2_ = Vds.row(F(i, 1));
+    Eigen::Vector3d q3_ = Vds.row(F(i, 2));
+
+    Eigen::Matrix3d Qds_T;
+    Qds_T.col(0) = q1_ - q3_;
+    Qds_T.col(1) = q2_ - q3_;
+    Qds_T.col(2) = Nds.row(i);
+
+    Eigen::Matrix3d Qs_T;
+    Qs_T.col(0) = q1 - q3;
+    Qs_T.col(1) = q2 - q3;
+    Qs_T.col(2) = Ns.row(i);
+
+    Eigen::Matrix3d S_i = Qds_T * Qs_T.inverse();
+    Eigen::Matrix3d S_i_T = S_i.transpose();
+    S.row(j) = S_i_T.row(0);
+    S.row(j + 1) =  S_i_T.row(1);
+    S.row(j + 2) =  S_i_T.row(2);
+  }
+  // cout << "[Finished] compute source deformation " << endl;
+}
+
+void non_default_prefactor() {
+  Eigen::SparseMatrix<double> A = G.transpose() * Diag * G;   // compute G.T * D * G
+
+  igl::slice(A, free_vertices, free_vertices, nAff);
+  igl::slice(A, free_vertices, handle_vertices, nAfc);
+
+  non_default_solver.compute(nAff);    // left hand side
+}
+
+void transfer_deformation() {
+  Eigen::MatrixXd RHS1 = G.transpose() * Diag * S;
+  Eigen::MatrixXd RHS1_sliced = igl::slice(RHS1, free_vertices, 1);
+  // cout << "RHS1 dimension: " << RHS1.rows() << " x " << RHS1.cols() << endl;
+  // cout << "RHS1_sliced dimension: " << RHS1_sliced.rows() << " x " << RHS1_sliced.cols() << endl;
+  Eigen::MatrixXd MMM = nAfc * handle_vertex_positions;
+  // cout << "MMM dimension: " << MMM.rows() << " x " << MMM.cols() << endl;
+  Eigen::MatrixXd RHS = RHS1_sliced - MMM;
+  Eigen::MatrixXd Vf_deformed = non_default_solver.solve(RHS);
+  // cout << "Vf_deformed dimension: " << Vf_deformed.rows() << " x " << Vf_deformed.cols() << endl;
+  // cout << "free_vertices dimension: " << free_vertices.rows() << " x " << free_vertices.cols() << endl;
+  Vd = Vds;
+  igl::slice_into(Vf_deformed, free_vertices, 1, Vd);
+  igl::slice_into(handle_vertex_positions, handle_vertices, 1, Vd);
+}
+
 bool solve(Viewer& viewer)
 {
   /**** Add your code for computing the deformation from handle_vertex_positions and handle_vertices here (replace following line) ****/
-  igl::slice_into(handle_vertex_positions, handle_vertices, 1, V);
+  // igl::slice_into(handle_vertex_positions, handle_vertices, 1, V);
+
+  // 3: deform the smooth mesh
+  // cout << "deform the smooth mesh ..." << endl;
+  Vds = Vs;    // deformed mesh
+  Eigen::MatrixXd Vf_deformed = solver.solve(-Afc * handle_vertex_positions);
+  igl::slice_into(handle_vertex_positions, handle_vertices, 1, Vds);
+  igl::slice_into(Vf_deformed, free_vertices, 1, Vds);
+
+  if (default_algo) {
+    transfer_high_frequency_details();
+  } else {
+    compute_source_deformation_gradient();
+    transfer_deformation();
+  }
+
+  if (mesh == 0) {    // smooth mesh
+    V = Vs;
+  } else if (mesh == 1) {   // deformed smooth mesh
+    V = Vds;
+  } else if (mesh == 2) {   // deformed mesh
+    V = Vd;
+  }
 
   return true;
 };
@@ -162,6 +437,7 @@ int main(int argc, char *argv[])
             handle_id.setConstant(V.rows(),1,-1);
           }
           if(ImGui::Checkbox("Deformation Transfer", &use_deformation_transfer)){}
+          ImGui::Combo("Mesh", &mesh, "smoothed\0smoothed_deformed\0deformed\0");
     }
   };
 
@@ -205,8 +481,13 @@ bool callback_mouse_down(Viewer& viewer, int button, int modifier)
   return doit;
 }
 
+int counter = 0;
 bool callback_mouse_move(Viewer& viewer, int mouse_x, int mouse_y)
 {
+  counter = (counter + 1) % 5;
+  if (counter != 0) {
+    return false;
+  }
   if (!doit)
     return false;
   if (mouse_mode == SELECT)
@@ -273,7 +554,6 @@ bool callback_mouse_up(Viewer& viewer, int button, int modifier)
 
   return false;
 };
-
 
 bool callback_pre_draw(Viewer& viewer)
 {
@@ -413,6 +693,21 @@ void onNewHandleID()
       handle_vertices[count++] = vi;
 
   compute_handle_centroids();
+  compute_free_vertices();
+  prefactor();
+  remove_high_frequency_details();
+
+  if (default_algo) {
+    compute_displacements();
+  } else {
+    // cout << "1" << endl;
+    compute_gradient_operator();
+    // cout << "2" << endl;
+    compute_weighting_matrix();
+    // cout << "3" << endl;
+    non_default_prefactor();
+    // cout << "4" << endl;
+  }
 }
 
 void applySelection()
