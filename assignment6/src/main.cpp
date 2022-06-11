@@ -42,71 +42,77 @@ Eigen::MatrixXd transM;
 // transformation quaternions
 Eigen::MatrixXd transQ;
 
+// flags
 bool mesh_loaded = false;
-// load mesh
-bool load_mesh(Viewer& viewer, string filename, Eigen::MatrixXd& V, Eigen::MatrixXi& F)
-{
-  igl::readOFF(filename, V, F);
-  viewer.data().clear();
-  viewer.data().set_mesh(V, F);
-  viewer.data().compute_normals();
-  viewer.core().align_camera_center(V, F);
+bool skeleton_loaded = false;
 
-  return true;
+// load mesh
+bool load_mesh (string filename, Eigen::MatrixXd& V, Eigen::MatrixXi& F) {
+    igl::readOFF(filename, V, F);
+
+    return true;
 }
 
 // show mesh in the viewer
-void show_mesh(Viewer& viewer, Eigen::MatrixXd& V, Eigen::MatrixXi& F) {
-    viewer.data().clear();
-    viewer.data().set_mesh(V, F);
-    viewer.data().compute_normals();
-    viewer.core().align_camera_center(V, F);
+void show_mesh (Viewer& viewer, Eigen::MatrixXd& V, Eigen::MatrixXi& F, bool& mesh_loaded) {
+    if (mesh_loaded) {
+        viewer.data().clear();
+        viewer.data().set_mesh(V, F);
+        viewer.data().compute_normals();
+        viewer.core().align_camera_center(V, F);
+    }
 
     return ;
 }
 
-// load and show skeleton in the viewer
-bool load_skeleton(Viewer& viewer, string filename, Eigen::MatrixXd& C, Eigen::MatrixXi& E) {
+bool load_skeleton (string filename, Eigen::MatrixXd& C, Eigen::MatrixXi& E) {
     // read .tgf
     igl::readTGF(filename, C, E);
 
-    // compute line cylinders given C and E
-    // compute P1 and p2
-    Eigen::MatrixXd P1, P2;
-    P1.resize(E.rows(), 3);
-    P2.resize(E.rows(), 3);
-    for (int i = 0; i < E.rows(); i ++) {
-        P1.row(i) << C.row(E(i, 0));
-        P2.row(i) << C.row(E(i, 1));
-    }
-
-    // compute ptColors
-    Eigen::MatrixXd ptColors;
-    ptColors.resize(E.rows(), 3);
-    for (int i = 0; i < E.rows(); i ++) {
-        ptColors.row(i) << 1.0, 0.0, 0;
-    }
-    // compute cyndColors
-    Eigen::MatrixXd cyndColors;
-    cyndColors.resize(E.rows(), 3);
-    for (int i = 0; i < E.rows(); i ++) {
-        cyndColors.row(i) << 0.0, 1.0, 0;
-    }
-
-    // compute line cylinders
-    Eigen::MatrixXd cyndV, cyndC;
-    Eigen::MatrixXi cyndF;
-    hedra::line_cylinders(P1, P2, 0.01, cyndColors, 10, cyndV, cyndF, cyndC);
-
-    // add data to viewer
-    viewer.data().clear();
-    viewer.data().set_points(C, ptColors);
-    viewer.data().set_mesh(cyndV, cyndF);
-    viewer.data().set_colors(cyndC);
-    viewer.data().compute_normals();
-    viewer.core().align_camera_center(cyndV, cyndF);
-
     return true;
+}
+
+// load and show skeleton in the viewer
+void show_skeleton (Viewer& viewer, Eigen::MatrixXd& C, Eigen::MatrixXi& E) {
+    if (skeleton_loaded) {
+        // compute line cylinders given C and E
+        // compute P1 and p2
+        Eigen::MatrixXd P1, P2;
+        P1.resize(E.rows(), 3);
+        P2.resize(E.rows(), 3);
+        for (int i = 0; i < E.rows(); i ++) {
+            P1.row(i) << C.row(E(i, 0));
+            P2.row(i) << C.row(E(i, 1));
+        }
+
+        // compute ptColors
+        Eigen::MatrixXd ptColors;
+        ptColors.resize(E.rows(), 3);
+        for (int i = 0; i < E.rows(); i ++) {
+            ptColors.row(i) << 1.0, 0.0, 0;
+        }
+        // compute cyndColors
+        Eigen::MatrixXd cyndColors;
+        cyndColors.resize(E.rows(), 3);
+        for (int i = 0; i < E.rows(); i ++) {
+            cyndColors.row(i) << 0.0, 1.0, 0;
+        }
+
+        // compute line cylinders
+        Eigen::MatrixXd cyndV, cyndC;
+        Eigen::MatrixXi cyndF;
+        hedra::line_cylinders(P1, P2, 0.01, cyndColors, 10, cyndV, cyndF, cyndC);
+
+        // add data to viewer
+        viewer.data().clear();
+        viewer.data().set_points(C, ptColors);
+        viewer.data().set_mesh(cyndV, cyndF);
+        viewer.data().set_colors(cyndC);
+        viewer.data().compute_normals();
+        // viewer.core().align_camera_center(cyndV, cyndF);
+    }
+
+    return ;
 }
 
 // void show_skeleton()
@@ -146,7 +152,7 @@ bool pre_draw (igl::opengl::glfw::Viewer & viewer) {
         // Interpolate pose and identity
         RotationList anim_pose(pose.size());
         for(int e = 0; e < pose.size(); e++) {
-            anim_pose[e] = pose[e].slerp(anim_t,Quaterniond::Identity());
+            anim_pose[e] = pose[e].slerp(anim_t, Quaterniond::Identity());
         }
 
         // Propagate relative rotations via FK to retrieve absolute transformations
@@ -154,52 +160,21 @@ bool pre_draw (igl::opengl::glfw::Viewer & viewer) {
         vector<Vector3d> vT;
         igl::forward_kinematics(C, E, P, anim_pose, vQ, vT);
         const int dim = C.cols();
-        MatrixXd T(E.rows()*(dim+1),dim);
-        for(int e = 0; e < E.rows(); e++) {
+        MatrixXd T(E.rows() * (dim + 1), dim);
+        for (int e = 0; e < E.rows(); e ++) {
             Affine3d a = Affine3d::Identity();
             a.translate(vT[e]);
-            a.rotate(vQ[e]);
-            T.block(e*(dim+1),0,dim+1,dim) =
-            a.matrix().transpose().block(0,0,dim+1,dim);
+            a.rotate(vQ[e]);        // support dim * dim rotation matrix as well
+            T.block(e * (dim + 1), 0, dim + 1, dim) = a.matrix().transpose().block(0, 0, dim + 1, dim);
         }
 
         // Also deform skeleton edges
         MatrixXd CT;
         MatrixXi BET;
-        igl::deform_skeleton(C, E, T, CT, BET);
+        igl::deform_skeleton(C, E, T, CT, BET);     // can be used for rotation matrix case as well
 
-        // compute cylinders
-        // compute P1 and p2
-        Eigen::MatrixXd P1, P2;
-        P1.resize(E.rows(), 3);
-        P2.resize(E.rows(), 3);
-        for (int i = 0; i < E.rows(); i ++) {
-            P1.row(i) << CT.row(BET(i, 0));
-            P2.row(i) << CT.row(BET(i, 1));
-        }
+        show_skeleton(viewer, CT, BET);
 
-        // compute ptColors
-        Eigen::MatrixXd ptColors;
-        ptColors.resize(E.rows(), 3);
-        for (int i = 0; i < E.rows(); i ++) {
-            ptColors.row(i) << 1.0, 0.0, 0;
-        }
-        // compute cyndColors
-        Eigen::MatrixXd cyndColors;
-        cyndColors.resize(E.rows(), 3);
-        for (int i = 0; i < E.rows(); i ++) {
-            cyndColors.row(i) << 0.0, 1.0, 0;
-        }
-
-        // compute line cylinders
-        Eigen::MatrixXd cyndV, cyndC;
-        Eigen::MatrixXi cyndF;
-        hedra::line_cylinders(P1, P2, 0.01, cyndColors, 10, cyndV, cyndF, cyndC);
-
-        viewer.data().set_points(CT, ptColors);
-        viewer.data().set_mesh(cyndV, cyndF);
-        viewer.data().set_colors(cyndC);
-        viewer.data().compute_normals();
         anim_t += anim_t_dir;
         anim_t_dir *= (anim_t>=1.0 || anim_t<=0.0?-1.0:1.0);
     }
@@ -231,9 +206,10 @@ int main(int argc, char *argv[]) {
         filename = std::string("../data/hand/hand.tgf"); // Default mesh
     }
 	
-    // mesh_loaded = load_mesh(viewer, filename, V, F);
+    // mesh_loaded = load_mesh(filename, V, F);
     // show_mesh(viewer, V, F);
-    load_skeleton(viewer, filename, C, E);
+    skeleton_loaded = load_skeleton(filename, C, E);
+    show_skeleton(viewer, C, E);
     igl::directed_edge_parents(E, P);
     load_quat("../data/hand/hand-pose_quat.dmat", transQ);
     igl::column_to_quats(transQ, pose);
