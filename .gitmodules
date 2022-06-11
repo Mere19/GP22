@@ -1,0 +1,3 @@
+[submodule "assignment6/assignment6/libhedra"]
+	path = assignment6/assignment6/libhedra
+	url = https://github.com/avaxman/libhedra.git
