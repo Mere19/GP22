@@ -98,3 +98,21 @@ void show_handles (Viewer& viewer, Eigen::MatrixXd& V, Eigen::VectorXi& H, const
 
     return ;
 }
+
+// W: #V by K, skinning weight function
+// k: handle id
+void show_skinning_weight_function (Viewer& viewer, Eigen::VectorXd& W, const int k) {
+    using namespace Eigen;
+
+    Eigen::MatrixXd weightColor;
+    weightColor.resize(W.rows(), 3);
+
+    // VectorXd wk = W.col(k);
+    VectorXd ones;
+    ones.setOnes(W.rows());
+    weightColor.col(0) = W;
+    weightColor.col(1) = W;
+    weightColor.col(2) = ones - W;
+    // igl::colormap(igl::COLOR_MAP_TYPE_PLASMA, W, true, weightColor);
+    viewer.data(mesh_id).set_colors(weightColor);
+}

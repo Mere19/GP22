@@ -18,17 +18,23 @@
 #include "gui.h"
 #include "control.h"
 #include "handles.h"
+#include "solve.h"
 #include "utils.h"
 
 using namespace std;
 using Viewer = igl::opengl::glfw::Viewer;
 
 // for handles
-int  handle_id = 0;
-vector<int> ref_handle_vertices;
-vector<int> ref_free_vertices;
-vector<int> handle_vertices;
-vector<int> free_vertices;
+int handle_id = 0;
+Eigen::VectorXi ref_handle_vertices;
+Eigen::VectorXi ref_free_vertices;
+Eigen::VectorXi handle_vertices;
+Eigen::VectorXi free_vertices;
+
+// for skinning weight function
+Eigen::VectorXd W;
+Eigen::SparseMatrix<double> Lw, Aff, Afc;
+Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>, Eigen::RowMajor> solver;
 
 // for animation
 RotationList pose;
@@ -204,6 +210,11 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int mods) {
         show_handles(viewer, V, refH, handle_id);
         handle_id = (handle_id + 1) % (C.rows());
         break;
+    case 'W':       // show skinning weight_function
+        solve_laplace(H, Afc, handle_vertices, handle_id, solver, W);
+        show_skinning_weight_function(viewer, W, handle_id);
+        handle_id = (handle_id + 1) % (C.rows());
+        break;
   }
 
   return true;
@@ -229,16 +240,17 @@ int main(int argc, char *argv[]) {
     igl::column_to_quats(transQ, pose);
     load_matrot("../data/hand/hand-pose_matrot.dmat", transM);
     load_handles("../data/hand/hand-handles.dmat", refH);
-    // save_handle_and_free_vertices(refH, ref_handle_vertices, ref_free_vertices);
+    save_handle_and_free_vertices(refH, ref_handle_vertices, ref_free_vertices);
 
     // show mesh and skeleton
-    // show_mesh(viewer, V, F);
-    // show_skeleton(viewer, C, E);
     show_mesh_and_skeleton(viewer, V, F, C, E);
 
     // select handles
     select_handles(C, E, V, H);
-    // save_handle_and_free_vertices(H, handle_vertices, free_vertices);
+    save_handle_and_free_vertices(H, handle_vertices, free_vertices);
+
+    // compute skinning weight function
+    prefactor(V, F, Lw, Aff, Afc, handle_vertices, free_vertices, solver);
 
     // Attach a menu plugin
     igl::opengl::glfw::imgui::ImGuiMenu menu;
