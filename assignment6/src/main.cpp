@@ -18,8 +18,8 @@
 #include "gui.h"
 #include "control.h"
 #include "handles.h"
-#include "solve.h"
-#include "utils.h"
+#include "compute.h"
+// #include "utils.h"
 
 using namespace std;
 using Viewer = igl::opengl::glfw::Viewer;
@@ -28,13 +28,20 @@ using Viewer = igl::opengl::glfw::Viewer;
 int handle_id = 0;
 Eigen::VectorXi ref_handle_vertices;
 Eigen::VectorXi ref_free_vertices;
+Eigen::VectorXi ref_root_vertices;
+Eigen::VectorXi ref_non_root_vertices;
+Eigen::MatrixXd ref_root_handle_positions;
 Eigen::VectorXi handle_vertices;
 Eigen::VectorXi free_vertices;
+Eigen::VectorXi root_vertices;
+Eigen::VectorXi non_root_vertices;
+Eigen::MatrixXd root_handle_positions;
 
 // for skinning weight function
-Eigen::VectorXd W;
-Eigen::SparseMatrix<double> Lw, Aff, Afc;
-Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>, Eigen::RowMajor> solver;
+Eigen::MatrixXd W, FW, fQG;
+Eigen::SparseMatrix<double> Lw, G, D, lAff, lAfc, pAff, pAfc;
+Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>, Eigen::RowMajor> laplace_solver;
+Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>, Eigen::RowMajor> poisson_solver;
 
 // for animation
 RotationList pose;
@@ -67,7 +74,7 @@ Eigen::MatrixXd handleID;
 // flags
 bool mesh_loaded = false;
 bool skeleton_loaded = false;
-bool matrot = true;
+bool matrot = false;
 bool visualize_skeleton = false;
 bool visualize_mesh = false;
 
@@ -167,26 +174,67 @@ void compute_absolute_transquat (RotationList& pose, double& anim_t, Eigen::Matr
     return ;
 }
 
+void compute_absolute_RTquat (RotationList& pose, double& anim_t, RotationList& vQ, vector<Eigen::Vector3d>& vT) {
+    using namespace Eigen;
+
+    const int dim = C.cols();
+
+    // interpolate pose and identity
+    RotationList anim_pose(pose.size());
+    for(int e = 0; e < pose.size(); e++) {
+        anim_pose[e] = pose[e].slerp(anim_t, Quaterniond::Identity());
+    }
+
+    // propagate relative rotations via FK to retrieve absolute transformations
+    igl::forward_kinematics(C, E, P, anim_pose, vQ, vT);
+    // for (int e = 0; e < E.rows(); e ++) {
+    //     Affine3d a = Affine3d::Identity();
+    //     a.translate(vT[e]);
+    //     a.rotate(vQ[e]);        // support dim * dim rotation matrix as well
+    //     T.block(e * (dim + 1), 0, dim + 1, dim) = a.matrix().transpose().block(0, 0, dim + 1, dim);
+    // }
+
+    return ;
+}
+
 bool pre_draw (igl::opengl::glfw::Viewer & viewer) {
     using namespace Eigen;
+
+    RotationList vQ;
+    vector<Vector3d> vT;
 
     if(viewer.core().is_animating) {
         // compute absolute transformations
         MatrixXd T;
-        if (matrot) {
+        // if (matrot) {
             compute_absolute_transmat(transM, frame, T);
-        } else {
-            compute_absolute_transquat(pose, anim_t, T);
-        }
+        // } else {
+            // compute_absolute_transquat(pose, anim_t, T);
+            compute_absolute_RTquat(pose, anim_t, vQ, vT);
+        // }
 
         // deform skeleton
         MatrixXd CT;
         MatrixXi BET;
-        igl::deform_skeleton(C, E, T, CT, BET);     // can be used for rotation matrix case as well
+        // igl::deform_skeleton(C, E, T, CT, BET);
 
-        // display skeleton
-        show_skeleton(viewer, CT, BET);
-        // update_visualization(viewer, V, F, CT, BET, visualize_mesh, visualize_skeleton);
+        // per-vertex linear blending skinning
+        MatrixXd VT;
+        // compute_per_vertex_linear_blending_skinning(V, W, T, VT);
+
+        // dual quaternion skinning
+        // compute_dual_quaternion_skinning(V, W, vQ, vT, VT);
+
+        // per-face linear blending skinning
+        RotationList fQ;
+        compute_per_face_transformation(FW, vQ, fQ);
+        compute_face_deformation_gradient(fQ, fQG);
+        compute_poisson_stitching(V, G, D, fQG, poisson_solver, pAfc, ref_root_vertices, ref_non_root_vertices, ref_root_handle_positions, VT);
+
+        // display deformed skeleton and mesh
+        // show_skeleton(viewer, CT, BET);
+        // show_mesh_and_skeleton(viewer, VT, F, CT, BET);
+        show_mesh(viewer, VT, F);
 
         frame = (frame + 1) % (transM.rows() / (3 * 20));
         anim_t += anim_t_dir;
@@ -202,18 +250,23 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int mods) {
     case ' ':
         viewer.core().is_animating = !viewer.core().is_animating;
         break;
-    case 'S':       // show selected handles
-        show_handles(viewer, V, H, handle_id);
-        handle_id = (handle_id + 1) % (C.rows());
-        break;
-    case 'R':       // show reference handles
+    case 'S':       // show S elected handles
         show_handles(viewer, V, refH, handle_id);
         handle_id = (handle_id + 1) % (C.rows());
         break;
-    case 'W':       // show skinning weight_function
-        solve_laplace(H, Afc, handle_vertices, handle_id, solver, W);
+    case 'R':       // show R eference handles
+        show_handles(viewer, V, refH, handle_id);
+        handle_id = (handle_id + 1) % (C.rows());
+        break;
+    case 'W':       // show skinning W eight function
         show_skinning_weight_function(viewer, W, handle_id);
         handle_id = (handle_id + 1) % (C.rows());
+        break;
+    case 'V':       // show per-V ertex linear blending skinning
+        // TODO show_per_vertex_linear_blending_skinning();
+        break;
+    case 'F':       // show per-F ace linear blending skinning
+        // TODO show_per_vertex_linear_blending_skinning();
         break;
   }
 
@@ -235,22 +288,33 @@ int main(int argc, char *argv[]) {
     // load data
     load_mesh("../data/hand/hand.off", V, F);
     load_skeleton("../data/hand/hand.tgf", C, E);
-    igl::directed_edge_parents(E, P);
     load_quat("../data/hand/hand-pose_quat.dmat", transQ);
-    igl::column_to_quats(transQ, pose);
     load_matrot("../data/hand/hand-pose_matrot.dmat", transM);
     load_handles("../data/hand/hand-handles.dmat", refH);
+
+    // preprocess
+    igl::directed_edge_parents(E, P);
+    igl::column_to_quats(transQ, pose);
     save_handle_and_free_vertices(refH, ref_handle_vertices, ref_free_vertices);
+    compute_root_vertices_and_positions(V, P, refH, ref_root_vertices, ref_non_root_vertices, ref_root_handle_positions);
 
     // show mesh and skeleton
     show_mesh_and_skeleton(viewer, V, F, C, E);
 
     // select handles
-    select_handles(C, E, V, H);
-    save_handle_and_free_vertices(H, handle_vertices, free_vertices);
+    // select_handles(C, E, V, H);
+    // save_handle_and_free_vertices(H, handle_vertices, free_vertices);
 
-    // compute skinning weight function
-    prefactor(V, F, Lw, Aff, Afc, handle_vertices, free_vertices, solver);
+    // compute per-vetex skinning weight function
+    laplace_prefactor(V, F, Lw, lAff, lAfc, ref_handle_vertices, ref_free_vertices, laplace_solver);
+    compute_per_vertex_skinning_weight_function(E, refH, lAfc, ref_handle_vertices, ref_free_vertices, laplace_solver, W);
+
+    // compute per-face skinning weight function
+    compute_per_face_skinning_weight_function(W, F, FW);
+    compute_gradient_operator(V, F, G);
+    compute_diagonal_weighting_matrix(V, F, D);
+    RotationList fQ;
+    poisson_prefactor(G, D, ref_root_vertices, ref_non_root_vertices, poisson_solver, pAff, pAfc);
 
     // Attach a menu plugin
     igl::opengl::glfw::imgui::ImGuiMenu menu;
@@ -263,18 +327,15 @@ int main(int argc, char *argv[]) {
         if (ImGui::CollapsingHeader("Visualization Options", ImGuiTreeNodeFlags_DefaultOpen))
         {
             if (ImGui::Button("visualize mesh", ImVec2(-1,0))) {
-                viewer.data(mesh_id).set_visible(true, 1);
-                viewer.data(skeleton_id).set_visible(false, 1);
+                show_mesh(viewer, V, F);
             }
 
             if (ImGui::Button("visualize skeleton", ImVec2(-1,0))) {
-                viewer.data(mesh_id).set_visible(false, 1);
-                viewer.data(skeleton_id).set_visible(true, 1);
+                show_skeleton(viewer, C, E);
             }
 
             if (ImGui::Button("visualize mesh & skeleton", ImVec2(-1,0))) {
-                viewer.data(mesh_id).set_visible(true, 1);
-                viewer.data(skeleton_id).set_visible(true, 2);
+                show_mesh_and_skeleton(viewer, V, F, C, E);
             }
 
             // if (ImGui::Button("visualize selected handles", ImVec2(-1,0))) {

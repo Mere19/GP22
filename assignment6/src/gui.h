@@ -15,11 +15,13 @@ int mesh_id, skeleton_id;
 
 // show mesh in the viewer
 void show_mesh (Viewer& viewer, Eigen::MatrixXd& V, Eigen::MatrixXi& F) {
-    mesh_id = viewer.append_mesh();
-    viewer.selected_data_index = 0;
-    viewer.data(mesh_id).set_mesh(V, F);
+    // mesh_id = viewer.append_mesh();
+    // viewer.selected_data_index = 0;
+    viewer.data().clear();
+    viewer.data().set_mesh(V, F);
+    // viewer.data(mesh_id).set_mesh(V, F);
     viewer.data().compute_normals();
-    viewer.core().align_camera_center(V, F);
+    // viewer.core().align_camera_center(V, F);
 
     return ;
 }
@@ -55,10 +57,12 @@ void show_skeleton (Viewer& viewer, Eigen::MatrixXd& C, Eigen::MatrixXi& E) {
     hedra::line_cylinders(P1, P2, 0.01, cyndColors, 10, cyndV, cyndF, cyndC);
 
     // add data to viewer
-    // viewer.data().clear();
-    skeleton_id = viewer.append_mesh();
-    viewer.data(skeleton_id).set_points(C, ptColors);
-    viewer.data(skeleton_id).set_mesh(cyndV, cyndF);
+    viewer.data().clear();
+    // skeleton_id = viewer.append_mesh();
+    // viewer.data(skeleton_id).set_points(C, ptColors);
+    // viewer.data(skeleton_id).set_mesh(cyndV, cyndF);
+    viewer.data().set_points(C, ptColors);
+    viewer.data().set_mesh(cyndV, cyndF);
     viewer.data().set_colors(cyndC);
     viewer.data().compute_normals();
 
@@ -68,15 +72,22 @@ void show_skeleton (Viewer& viewer, Eigen::MatrixXd& C, Eigen::MatrixXi& E) {
 // 1, write down what I am doing
 // 2, write down every possible subtask that I can come up with
 // 3, cross the ones that do not work / finished
-
+const Eigen::RowVector3d sea_green(70./255.,252./255.,167./255.);
 void show_mesh_and_skeleton (Viewer& viewer,
     Eigen::MatrixXd& V, Eigen::MatrixXi& F,
     Eigen::MatrixXd& C, Eigen::MatrixXi& E) {
 
-    viewer.data().clear();
+    Eigen::MatrixXd ptColors;
+    ptColors.resize(E.rows(), 3);
+    for (int i = 0; i < E.rows(); i ++) {
+        ptColors.row(i) << 1.0, 0.0, 0;
+    }
 
-    show_mesh(viewer, V, F);        // show mesh
-    show_skeleton(viewer, C, E);        // show skeleton
+    viewer.data().clear();
+    viewer.data().set_mesh(V, F);
+    viewer.data().set_points(C, ptColors);
+    viewer.data().set_edges(C, E, sea_green);
+    viewer.data().compute_normals();
 }
 
 void show_handles (Viewer& viewer, Eigen::MatrixXd& V, Eigen::VectorXi& H, const int handle_id) {
@@ -101,16 +112,17 @@ void show_handles (Viewer& viewer, Eigen::MatrixXd& V, Eigen::VectorXi& H, const
 
 // W: #V by K, skinning weight function
 // k: handle id
-void show_skinning_weight_function (Viewer& viewer, Eigen::VectorXd& W, const int k) {
+void show_skinning_weight_function (Viewer& viewer, Eigen::MatrixXd& W, const int k) {
     using namespace Eigen;
 
     VectorXd ones;
+    MatrixXd Wk = W.col(k);
+    MatrixXd weightColor;
 
-    Eigen::MatrixXd weightColor;
-    weightColor.resize(W.rows(), 3);
-    ones.setOnes(W.rows());
-    weightColor.col(0) = W;
-    weightColor.col(1) = W;
-    weightColor.col(2) = ones - W;
+    weightColor.resize(Wk.rows(), 3);
+    ones.setOnes(Wk.rows());
+    weightColor.col(0) = Wk;
+    weightColor.col(1) = Wk;
+    weightColor.col(2) = ones - Wk;
     viewer.data(mesh_id).set_colors(weightColor);
 }

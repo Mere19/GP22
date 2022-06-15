@@ -55,12 +55,12 @@ void select_handles_helper (const int joint_id, Eigen::MatrixXd& C, Eigen::Matri
     double minDistance = sqrtD.minCoeff();
 
     // assign handle id to vertices
-    double threshold = 2.5 * minDistance;
+    double threshold = 1.75 * minDistance;
     for (int i = 0; i < V.rows(); i ++) {
         if (H[i] == -1 && sqrtD[i] < threshold) {
             H[i] = joint_id;
         } else if (H[i] > -1 && sqrtD[i] < threshold) {
-            // TODO: how to deal with conflicting joint_id
+            // TODO: how to deal with conflicting joint_id?
             // RowVector3d ss = C.row(E(H[i], 0));
             // RowVector3d dd = C.row(E(H[i], 1));
             // double sqrtd;
@@ -107,4 +107,49 @@ void save_handle_and_free_vertices (Eigen::VectorXi& H,
             free_vertices[count ++] = i;
         }
     }
+}
+
+void compute_root_vertices_and_positions (Eigen::MatrixXd& V, Eigen::VectorXi& P, Eigen::VectorXi& H,
+Eigen::VectorXi& root_vertices, Eigen::VectorXi& non_root_vertices, Eigen::MatrixXd& root_handle_positions) {
+    using namespace Eigen;
+
+    int root_handle_id = 0;
+    for (int i = 0; i < P.rows(); i ++) {
+        if (P[i] == -1) {
+            root_handle_id = i;
+            break;
+        }
+    }
+
+    cout << "root joint id: " << root_handle_id << endl;
+
+    vector<int> root_handle_indices, non_root_handle_indices;
+    for (int i = 0; i < H.rows(); i ++) {
+        if (H[i] == root_handle_id) {
+            root_handle_indices.push_back(i);
+        } else {
+            non_root_handle_indices.push_back(i);
+        }
+    }
+
+    int n = root_handle_indices.size();
+
+    int count1 = 0;
+    int count2 = 0;
+    root_vertices.resize(n);
+    non_root_vertices.resize(V.rows() - n);
+    for (int i = 0; i < H.rows(); i ++) {
+        if (H[i] == root_handle_id) {
+            root_vertices[count1 ++] = i;
+        } else {
+            non_root_vertices[count2 ++] = i;
+        }
+    }
+
+    root_handle_positions.resize(n, 3);
+    for (int i = 0; i < n; i ++) {
+        root_handle_positions.row(i) = V.row(root_handle_indices[i]);
+    }
+
+    return ;
 }
