@@ -39,6 +39,7 @@ bool pre_draw(igl::opengl::glfw::Viewer & viewer)
 {
   using namespace Eigen;
   using namespace std;
+  
   if(viewer.core().is_animating)
   {
     // Interpolate pose and identity

@@ -8,6 +8,7 @@
 /*** insert any libigl headers here ***/
 #include <igl/readTGF.h>
 #include <igl/readDMAT.h>
+#include <igl/readOBJ.h>
 #include <igl/directed_edge_parents.h>
 #include <igl/column_to_quats.h>
 #include <igl/deform_skeleton.h>
@@ -267,6 +268,15 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int mods) {
         break;
     case 'F':       // show per-F ace linear blending skinning
         // TODO show_per_vertex_linear_blending_skinning();
+        break;
+    case 'E':       // show example
+        Eigen::MatrixXd EV;
+        Eigen::MatrixXi EF;
+        igl::readOFF("../data/GP/body.off", EV, EF);
+        show_mesh(viewer, EV, EF);
+        break;
+    case 'U':       // show unposed example
+        // TODO
         break;
   }
 
