@@ -51,7 +51,9 @@ Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>, Eigen::RowMajor> poisson_
 
 // for animation
 RotationList pose;
-int frame = 40;
+int frame = 0;
+int frame_dir = 1;
+int numFrames;
 double anim_t = 1.0;
 double anim_t_dir = -0.03;
 Eigen::MatrixXd Rot, Trans;
@@ -197,7 +199,7 @@ bool pre_draw (igl::opengl::glfw::Viewer & viewer) {
         MatrixXd T;
         // if (matrot) {
             compute_absolute_transmat(transM, frame, T);
-            cout << "frame: " << frame << endl;
+            // // cout << "frame: " << frame << endl;
         // } else {
             // compute_absolute_transquat(pose, anim_t, T);
             // compute_absolute_RTquat(pose, anim_t, vQ, vT);
@@ -229,7 +231,12 @@ bool pre_draw (igl::opengl::glfw::Viewer & viewer) {
         // show_mesh_and_skeleton(viewer, VT, F, CT, BET);
         show_mesh(viewer, VT, F);
 
-        frame = (frame + 1) % (transM.rows() / (3 * (E.rows() - 1)));
+        if (frame == numFrames - 2) {
+            frame_dir = -1;
+        } else if (frame == 0) {
+            frame_dir = 1;
+        }
+        frame += frame_dir;
         anim_t += anim_t_dir;
         anim_t_dir *= (anim_t>=1.0 || anim_t<=0.0?-1.0:1.0);
     }
@@ -244,7 +251,7 @@ bool key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int mods) {
         viewer.core().is_animating = !viewer.core().is_animating;
         break;
     case 'S':       // show S elected handles
-        show_handles(viewer, V, refH, handle_id);
+        show_handles(viewer, V, H, handle_id);
         handle_id = (handle_id + 1) % (C.rows());
         break;
     case 'R':       // show R eference handles
@@ -294,70 +301,76 @@ int main(int argc, char *argv[]) {
         filename = std::string(argv[1]); // Mesh provided as command line argument
     }
     else {
-        filename = std::string("../data/hand/hand.tgf"); // Default mesh
+        filename = std::string("../data/hand/hand.off"); // Default mesh
     }
 	
     // load data for task 3, 4, 5, 6, 7
-    // load_mesh("../data/hand/hand.off", V, F);
-    // load_skeleton("../data/hand/hand.tgf", C, E);
-    // load_quat("../data/hand/hand-pose_quat.dmat", transQ);
-    // load_matrot("../data/hand/hand-pose_matrot.dmat", transM);
-    // load_handles("../data/hand/hand-handles.dmat", refH);
+    load_mesh("../data/hand/hand.off", V, F);
+    load_skeleton("../data/hand/hand.tgf", C, E);
+    load_quat("../data/hand/hand-pose_quat.dmat", transQ);
+    load_matrot("../data/hand/hand-pose_matrot.dmat", transM);
+    load_handles("../data/hand/hand-handles.dmat", refH);
+
+    numFrames = transM.rows() / (3 * (E.rows() - 1));
 
     // load data for task 8
-    igl::readOBJ("../data/context-aware/reference.obj", V, F);
-    load_skeleton("../data/context-aware/skeleton.tgf", C, E);
-    load_matrot("../data/context-aware/all_frames.dmat", transM);
-    load_handles("../data/context-aware/handles.dmat", refH);
-    Eigen::MatrixXd transM0, transM1, transM2, transM3;
-    load_matrot("../data/context-aware/eg0.dmat", transM0);
-    load_matrot("../data/context-aware/eg1.dmat", transM1);
-    load_matrot("../data/context-aware/eg2.dmat", transM2);
-    load_matrot("../data/context-aware/eg3.dmat", transM3);
-    Eigen::MatrixXd V0, V1, V2, V3;
-    Eigen::MatrixXd F0, F1, F2, F3;
-    igl::readOBJ("../data/context-aware/eg0.obj", V0, F0);
-    igl::readOBJ("../data/context-aware/eg1.obj", V1, F1);
-    igl::readOBJ("../data/context-aware/eg2.obj", V2, F2);
-    igl::readOBJ("../data/context-aware/eg3.obj", V3, F3);
+    // igl::readOBJ("../data/context-aware/reference.obj", V, F);
+    // load_skeleton("../data/context-aware/skeleton.tgf", C, E);
+    // load_matrot("../data/context-aware/all_frames.dmat", transM);
+    // load_handles("../data/context-aware/handles.dmat", refH);
+    // Eigen::MatrixXd transM0, transM1, transM2, transM3;
+    // load_matrot("../data/context-aware/eg0.dmat", transM0);
+    // load_matrot("../data/context-aware/eg1.dmat", transM1);
+    // load_matrot("../data/context-aware/eg2.dmat", transM2);
+    // load_matrot("../data/context-aware/eg3.dmat", transM3);
+    // Eigen::MatrixXd V0, V1, V2, V3;
+    // Eigen::MatrixXd F0, F1, F2, F3;
+    // igl::readOBJ("../data/context-aware/eg0.obj", V0, F0);
+    // igl::readOBJ("../data/context-aware/eg1.obj", V1, F1);
+    // igl::readOBJ("../data/context-aware/eg2.obj", V2, F2);
+    // igl::readOBJ("../data/context-aware/eg3.obj", V3, F3);
 
     // preprocess
     igl::directed_edge_parents(E, P);
-    // igl::column_to_quats(transQ, pose);
+    igl::column_to_quats(transQ, pose);
     save_handle_and_free_vertices(refH, ref_handle_vertices, ref_free_vertices);
     compute_root_vertices_and_positions(V, P, refH, ref_root_vertices, ref_non_root_vertices, ref_root_handle_positions);
 
     // compute per-vetex skinning weight function
-    laplace_prefactor(V, F, Lw, lAff, lAfc, ref_handle_vertices, ref_free_vertices, laplace_solver);
-    compute_per_vertex_skinning_weight_function(E, refH, lAfc, ref_handle_vertices, ref_free_vertices, laplace_solver, W);
+    // laplace_prefactor(V, F, Lw, lAff, lAfc, ref_handle_vertices, ref_free_vertices, laplace_solver);
+    // compute_per_vertex_skinning_weight_function(E, refH, lAfc, ref_handle_vertices, ref_free_vertices, laplace_solver, W);
+    
 
     // preprocess data for task 8
-    Eigen::MatrixXd ET0, ET1, ET2, ET3;
-    compute_absolute_transmat(transM0, 0, ET0);
-    compute_absolute_transmat(transM1, 0, ET1);
-    compute_absolute_transmat(transM2, 0, ET2);
-    compute_absolute_transmat(transM3, 0, ET3);
-    ET.push_back(ET0);
-    ET.push_back(ET1);
-    ET.push_back(ET2);
-    ET.push_back(ET3);
-    compute_c(ET, JC);
-    Eigen::MatrixXd UV0, UV1, UV2, UV3;
-    unpose(V0, W, ET0, UV0);
-    unpose(V1, W, ET1, UV1);
-    unpose(V2, W, ET2, UV2);
-    unpose(V3, W, ET3, UV3);
-    UV.push_back(UV0);
-    UV.push_back(UV1);
-    UV.push_back(UV2);
-    UV.push_back(UV3);
+    // Eigen::MatrixXd ET0, ET1, ET2, ET3;
+    // compute_absolute_transmat(transM0, 0, ET0);
+    // compute_absolute_transmat(transM1, 0, ET1);
+    // compute_absolute_transmat(transM2, 0, ET2);
+    // compute_absolute_transmat(transM3, 0, ET3);
+    // ET.push_back(ET0);
+    // ET.push_back(ET1);
+    // ET.push_back(ET2);
+    // ET.push_back(ET3);
+    // compute_c(ET, JC);
+    // Eigen::MatrixXd UV0, UV1, UV2, UV3;
+    // unpose(V0, W, ET0, UV0);
+    // unpose(V1, W, ET1, UV1);
+    // unpose(V2, W, ET2, UV2);
+    // unpose(V3, W, ET3, UV3);
+    // UV.push_back(UV0);
+    // UV.push_back(UV1);
+    // UV.push_back(UV2);
+    // UV.push_back(UV3);
 
     // show mesh and skeleton
     show_mesh_and_skeleton(viewer, V, F, C, E);
 
     // select handles
-    // select_handles(C, E, V, H);
-    // save_handle_and_free_vertices(H, handle_vertices, free_vertices);
+    select_handles(C, E, V, H);
+    save_handle_and_free_vertices(H, handle_vertices, free_vertices);
+    compute_root_vertices_and_positions(V, P, H, root_vertices, non_root_vertices, root_handle_positions);
+    laplace_prefactor(V, F, Lw, lAff, lAfc, handle_vertices, free_vertices, laplace_solver);
+    compute_per_vertex_skinning_weight_function(E, H, lAfc, handle_vertices, free_vertices, laplace_solver, W);
 
     // compute per-face skinning weight function
     // compute_per_face_skinning_weight_function(W, F, FW);

@@ -1,8 +1,8 @@
 # Assignment 6: Skinning & Skeletal Animation
 
-Name: 'Your real name'
+Name: 'Di Zhuang'
 
-Legi-Nr: 'Your legi number'
+Legi-Nr: '21958772'
 
 
 ## Required results
@@ -35,7 +35,7 @@ Edit this 'README.md' file to report all your results. Use the ```/res``` folder
 
 | Representions        |  Short Description  |     pros            |      cons           |
 | :------------------: |:------------------: |:------------------: |:------------------: |
-| rotation matrix      | xxxxxx              |xxxxxx               | xxxxxx              |
+| rotation matrix      | Each rotation can be represented as a 3x3 matrix whose columns are of unit length and are mutually orthogonal, and whose determinant is 1.0. The set of all such matrices forms the group SO(3) under the operation of matrix multiplication, and each member of the group in turn corresponds to a rotation.            |xxxxxx               | xxxxxx              |
 | euler angles         | xxxxxx              |xxxxxx               | xxxxxx              |
 | axis angle           | xxxxxx              |xxxxxx               | xxxxxx              |
 | quaternions          | xxxxxx              |xxxxxx               | xxxxxx              |
@@ -49,24 +49,24 @@ Edit this 'README.md' file to report all your results. Use the ```/res``` folder
 ### Task 3: animation of the skeleton
 | from rotaton matrix  |  from quaternions   |
 | :------------------: |:------------------: |
-| <img align="center"  src="./res/placeholder.gif" width="300">  |<img align="center"  src="./res/placeholder.gif" width="300">  |
+| <img align="center"  src="./res/from_rotation_matrix.gif" width="300">  |<img align="center"  src="./res/from_quat.gif" width="300">  |
 
 ### Task 4: computing harmonic skinning weights on selected handles
 #### Task 4.1. handle selection
 | shape name           |  joint 1            |  joint 2            |  joint 3            |
 | :------------------: |:------------------: |:------------------: |:------------------: |
-| hand | <img align="center"  src="./res/placeholder.png" width="300">  | <img align="center"  src="./res/placeholder.png" width="300"> | <img align="center"  src="./res/placeholder.png" width="300"> |
+| hand | <img align="center"  src="./res/hd_joint1.png" width="300">  | <img align="center"  src="./res/hd_joint2.png" width="300"> | <img align="center"  src="./res/hd_joint3.png" width="300"> |
 
 
 #### Task 4.2. skinning weights visualization
 | shape name           |  joint 1            |  joint 2            |  joint 3            |
 | :------------------: |:------------------: |:------------------: |:------------------: |
-| hand | <img align="center"  src="./res/placeholder.png" width="300">  | <img align="center"  src="./res/placeholder.png" width="300"> | <img align="center"  src="./res/placeholder.png" width="300"> |
+| hand | <img align="center"  src="./res/wt_joint1.png" width="300">  | <img align="center"  src="./res/wt_joint2.png" width="300"> | <img align="center"  src="./res/wt_joint3.png" width="300"> |
 
 ### Task 5/6/7: skeletal animation 
 | Task 5: per-vertex + rotation + Lerp   | Task 6: per-vertex + quaternion + Nlerp      | Task 7: per-face + quaternion + Slerp  |
 | :---------:                            |        :---------:                           |       :---------:                      |
-|<img align="center"  src="./res/placeholder.gif" width="300">  |<img align="center"  src="./res/placeholder.gif" width="300">  |  <img align="center"  src="./res/placeholder.gif" width="300">  |
+|<img align="center"  src="./res/per_vertex_rot_lerp.gif" width="300">  |<img align="center"  src="./res/per_vertex_quat_nlerp.gif" width="300">  |  <img align="center"  src="./res/per_face_quat_slerp.gif" width="300">  |
 
 
 Your comments (how these setups different from each other, and please compare the visual effects)
@@ -84,4 +84,4 @@ Your comments (how these setups different from each other, and please compare th
 #### Task 8.1.2 skeletal animition using context
 | without context   | with context     | 
 | :---------:                            |        :---------:                           |  
-|<img align="center"  src="./res/without_context.gif" width="300">  |<img align="center"  src="./res/with_context.gif" width="300">  |  
+|<img align="center"  src="./res/no_context_info.gif" width="300">  |<img align="center"  src="./res/context_info.gif" width="300">  |  

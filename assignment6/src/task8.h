@@ -147,13 +147,13 @@ Eigen::MatrixXd& T, vector<Eigen::MatrixXd>& ET, Eigen::MatrixXd& JC, Eigen::Mat
     VT = M * T;
 
     // add context-aware information
-    for (int i = 0; i < V.rows(); i ++) {
-        VectorXd a;
-        MatrixXd delta;
-        compute_a(T, ET, JC, a);
-        compute_delta(V, UV, i, delta);
-        VT.row(i) = VT.row(i) + a.transpose() * delta;
-    }
+    // for (int i = 0; i < V.rows(); i ++) {
+    //     VectorXd a;
+    //     MatrixXd delta;
+    //     compute_a(T, ET, JC, a);
+    //     compute_delta(V, UV, i, delta);
+    //     VT.row(i) = VT.row(i) + a.transpose() * delta;
+    // }
 
     return ;
 }
