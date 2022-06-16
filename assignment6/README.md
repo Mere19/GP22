@@ -79,9 +79,9 @@ Your comments (how these setups different from each other, and please compare th
 #### Task 8.1.1 visualize the unposed example shapes
 | shape name           |  pose 1             |   pose 2            |   pose 3            |
 | :------------------: |:------------------: |:------------------: |:------------------: |
-| human | <img align="center"  src="./res/placeholder.png" width="300">  | <img align="center"  src="./res/placeholder.png" width="300"> | <img align="center"  src="./res/placeholder.png" width="300"> |
+| human | <img align="center"  src="./res/unposed1.png" width="300">  | <img align="center"  src="./res/unposed2.png" width="300"> | <img align="center"  src="./res/unposed3.png" width="300"> |
 
 #### Task 8.1.2 skeletal animition using context
 | without context   | with context     | 
 | :---------:                            |        :---------:                           |  
-|<img align="center"  src="./res/placeholder.gif" width="300">  |<img align="center"  src="./res/placeholder.gif" width="300">  |  
+|<img align="center"  src="./res/without_context.gif" width="300">  |<img align="center"  src="./res/with_context.gif" width="300">  |  
