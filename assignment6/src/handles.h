@@ -109,6 +109,7 @@ void save_handle_and_free_vertices (Eigen::VectorXi& H,
     }
 }
 
+// compute handle vertices for the root handle
 void compute_root_vertices_and_positions (Eigen::MatrixXd& V, Eigen::VectorXi& P, Eigen::VectorXi& H,
 Eigen::VectorXi& root_vertices, Eigen::VectorXi& non_root_vertices, Eigen::MatrixXd& root_handle_positions) {
     using namespace Eigen;
@@ -120,8 +121,6 @@ Eigen::VectorXi& root_vertices, Eigen::VectorXi& non_root_vertices, Eigen::Matri
             break;
         }
     }
-
-    cout << "root joint id: " << root_handle_id << endl;
 
     vector<int> root_handle_indices, non_root_handle_indices;
     for (int i = 0; i < H.rows(); i ++) {

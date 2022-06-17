@@ -14,6 +14,7 @@
 
 // typedef Eigen::Triplet<double> Triplet;
 
+// compute weighted transformation matrix for each vertex
 void compute_T_sum (Eigen::MatrixXd& V, Eigen::MatrixXd& W, Eigen::MatrixXd& T, Eigen::MatrixXd& T_sum) {
     using namespace Eigen;
 
@@ -26,8 +27,6 @@ void compute_T_sum (Eigen::MatrixXd& V, Eigen::MatrixXd& W, Eigen::MatrixXd& T, 
             T_sum.block(3 * i, 0, 3, 4) += W(i, j) * T.block(4 * j, 0, 4, 3).transpose();
         }
     }
-
-    // cout << "[completed] compute T sum" << endl;
 
     return ;
 }
@@ -46,21 +45,11 @@ void unpose (Eigen::MatrixXd V, Eigen::MatrixXd& W, Eigen::MatrixXd& T, Eigen::M
     for (int i = 0; i < numVertices; i ++) {
         MatrixXd R = T_sum.block(3 * i, 0, 3, 3);
         Vector3d t = T_sum.block(3 * i, 3, 3, 1);
-        UV.row(i) = (R.inverse() * (V.row(i).transpose() - t)).transpose();
+        UV.row(i) = (R.inverse() * (V.row(i).transpose() - t)).transpose();     // apply inverse of the absolute transformation
     }
 
     return ;
 }
-
-// void compute_per_vertex_displacements (Eigen::MatrixXd& V, Eigen::MatrixXd& UV, Eigen::MatrixXd& S) {
-//     S = UV - V;
-
-//     return ;
-// }
-
-// void compute_delta_vector (Eigen::MatrixXd& V, vector<Eigen::MatrixXd>& UV) {
-//     // TODO
-// }
 
 double compute_rbf (double x) {
     return exp(- x * x / 2);
@@ -105,6 +94,7 @@ void compute_c (vector<Eigen::MatrixXd>& ET, Eigen::MatrixXd& JC) {
     return ;
 }
 
+// compute a weights for transformation parameters T
 void compute_a (Eigen::MatrixXd& T, vector<Eigen::MatrixXd>& ET, Eigen::MatrixXd& JC, Eigen::VectorXd& a) {
     using namespace Eigen;
 
@@ -122,6 +112,7 @@ void compute_a (Eigen::MatrixXd& T, vector<Eigen::MatrixXd>& ET, Eigen::MatrixXd
     return ;
 }
 
+// compute displacements for vertex i
 void compute_delta(Eigen::MatrixXd& V, vector<Eigen::MatrixXd>& UV, int i, Eigen::MatrixXd& delta) {
     using namespace Eigen;
 
@@ -135,8 +126,6 @@ void compute_delta(Eigen::MatrixXd& V, vector<Eigen::MatrixXd>& UV, int i, Eigen
     return ;
 }
 
-// TODO.
-// V: rest pose mesh vertices
 void compute_per_vertex_context_aware_deformation (Eigen::MatrixXd& V, vector<Eigen::MatrixXd>& UV, Eigen::MatrixXd& W,
 Eigen::MatrixXd& T, vector<Eigen::MatrixXd>& ET, Eigen::MatrixXd& JC, Eigen::MatrixXd& VT) {
     using namespace Eigen;

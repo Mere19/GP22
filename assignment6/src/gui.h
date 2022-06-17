@@ -15,13 +15,9 @@ int mesh_id, skeleton_id;
 
 // show mesh in the viewer
 void show_mesh (Viewer& viewer, Eigen::MatrixXd& V, Eigen::MatrixXi& F) {
-    // mesh_id = viewer.append_mesh();
-    // viewer.selected_data_index = 0;
     viewer.data().clear();
     viewer.data().set_mesh(V, F);
-    // viewer.data(mesh_id).set_mesh(V, F);
     viewer.data().compute_normals();
-    // viewer.core().align_camera_center(V, F);
 
     return ;
 }
@@ -58,9 +54,6 @@ void show_skeleton (Viewer& viewer, Eigen::MatrixXd& C, Eigen::MatrixXi& E) {
 
     // add data to viewer
     viewer.data().clear();
-    // skeleton_id = viewer.append_mesh();
-    // viewer.data(skeleton_id).set_points(C, ptColors);
-    // viewer.data(skeleton_id).set_mesh(cyndV, cyndF);
     viewer.data().set_points(C, ptColors);
     viewer.data().set_mesh(cyndV, cyndF);
     viewer.data().set_colors(cyndC);

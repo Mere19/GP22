@@ -21,12 +21,11 @@
 #include "handles.h"
 #include "compute.h"
 #include "context_aware.h"
-// #include "utils.h"
 
 using namespace std;
 using Viewer = igl::opengl::glfw::Viewer;
 
-// for task 8
+// for context-aware
 Eigen::MatrixXd transM0, transM1, transM2, transM3;
 Eigen::MatrixXd V0, V1, V2, V3;
 Eigen::MatrixXd F0, F1, F2, F3;
@@ -67,29 +66,20 @@ Eigen::MatrixXd V;
 Eigen::MatrixXi F;
 // skeleton vertices by 3 list of vertex positions
 Eigen::MatrixXd C;
-// skeleton edges by 2 list of edge indices
+// skeleton edges by 2 list of edge vertex indices
 Eigen::MatrixXi E;
 // #V x1 reference handle ID, -1 = not handle vertices
 Eigen::VectorXi refH;
 // #V x1 handle ID, -1 = not handle vertices
 Eigen::VectorXi H;
-// list of parents
+// list of joint parents 
 Eigen::VectorXi P;
 // transformation matrices
 Eigen::MatrixXd transM;
 // transformation quaternions
 Eigen::MatrixXd transQ;
-// handle IDs
-Eigen::MatrixXd handleID;
 
-// flags
-bool mesh_loaded = false;
-bool skeleton_loaded = false;
-bool matrot = false;
-bool visualize_skeleton = false;
-bool visualize_mesh = false;
-
-// GUI
+// see key_down function
 int animation_mode = 0;
 
 bool load_skeleton (string filename, Eigen::MatrixXd& C, Eigen::MatrixXi& E) {
@@ -117,6 +107,7 @@ bool load_quat (string filename, Eigen::MatrixXd& transQ) {
     return true;
 }
 
+// compute absolute transformation matrices given relative rotation matrices
 void compute_absolute_transmat(Eigen::MatrixXd& transM, int frame, Eigen::MatrixXd& T) {
     using namespace Eigen;
 
@@ -138,6 +129,7 @@ void compute_absolute_transmat(Eigen::MatrixXd& transM, int frame, Eigen::Matrix
     return ;
 }
 
+// compute absolute transformation matrix given relative rotation quaternions
 void compute_absolute_transquat (RotationList& pose, double& anim_t, Eigen::MatrixXd& T) {
     using namespace Eigen;
 
@@ -164,6 +156,7 @@ void compute_absolute_transquat (RotationList& pose, double& anim_t, Eigen::Matr
     return ;
 }
 
+// compute absolute rotation quaternions and translations given relative rotation quaternions
 void compute_absolute_RTquat (RotationList& pose, double& anim_t, RotationList& vQ, vector<Eigen::Vector3d>& vT) {
     using namespace Eigen;
 
@@ -177,12 +170,6 @@ void compute_absolute_RTquat (RotationList& pose, double& anim_t, RotationList& 
 
     // propagate relative rotations via FK to retrieve absolute transformations
     igl::forward_kinematics(C, E, P, anim_pose, vQ, vT);
-    // for (int e = 0; e < E.rows(); e ++) {
-    //     Affine3d a = Affine3d::Identity();
-    //     a.translate(vT[e]);
-    //     a.rotate(vQ[e]);        // support dim * dim rotation matrix as well
-    //     T.block(e * (dim + 1), 0, dim + 1, dim) = a.matrix().transpose().block(0, 0, dim + 1, dim);
-    // }
 
     return ;
 }
@@ -331,39 +318,6 @@ bool pre_draw (igl::opengl::glfw::Viewer & viewer) {
                 show_mesh(viewer, VT, F);
                 break;
         }
-        // if (matrot) {
-            // compute_absolute_transmat(transM, frame, T);
-            // // cout << "frame: " << frame << endl;
-        // } else {
-            // compute_absolute_transquat(pose, anim_t, T);
-            // compute_absolute_RTquat(pose, anim_t, vQ, vT);
-        // }
-
-        // skeleton deformation
-        // MatrixXd CT;
-        // MatrixXi BET;
-        // igl::deform_skeleton(C, E, T, CT, BET);
-
-        // per-vertex linear blending skinning
-        // MatrixXd VT;
-        // compute_per_vertex_linear_blending_skinning(V, W, T, VT);
-
-        // dual quaternion skinning
-        // compute_dual_quaternion_skinning(V, W, vQ, vT, VT);
-
-        // per-face linear blending skinning
-        // RotationList fQ;
-        // compute_per_face_transformation(FW, vQ, fQ);
-        // compute_face_deformation_gradient(fQ, fQG);
-        // compute_poisson_stitching(V, G, D, fQG, poisson_solver, pAfc, ref_root_vertices, ref_non_root_vertices, ref_root_handle_positions, VT);
-
-        // per-vertex context-aware deformation
-        // compute_per_vertex_context_aware_deformation (V, UV, W, T, ET, JC, VT);
-
-        // display deformed skeleton and mesh
-        // show_skeleton(viewer, CT, BET);
-        // show_mesh_and_skeleton(viewer, VT, F, CT, BET);
-        // show_mesh(viewer, VT, F);
 
         if (frame == numFrames - 2) {
             frame_dir = -1;
@@ -481,14 +435,6 @@ int main(int argc, char *argv[]) {
             if (ImGui::Button("visualize mesh & skeleton", ImVec2(-1,0))) {
                 show_mesh_and_skeleton(viewer, V, F, C, E);
             }
-
-            // if (ImGui::Button("visualize selected handles", ImVec2(-1,0))) {
-            //     // TODO
-            // }
-
-            // if (ImGui::Button("visualize reference handles", ImVec2(-1,0))) {
-            //     show_handles(viewer, V, refH, handle_id);
-            // }
         }
     };
 
