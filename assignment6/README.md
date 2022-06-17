@@ -28,6 +28,18 @@ Edit this 'README.md' file to report all your results. Use the ```/res``` folder
 5. Please feel free to try other skeletal animation/deformation data you can find online if you find the provided animation is not cool enough (for example [here](https://www.mixamo.com/#/), but note that they might be in different data format than the provide ones).
 6. Please try to keep your code clean and self-explained (with necessary comments), since we will grade this assignment based on your code as well (~~please don't feel upset when you get bad animations, you can always blame our poor data preparation~~).
 
+## Instruction
+### Hand
+1. press 'H' to load data and do precomputation
+2. press 'S' to view selected handles / press 'R' to view reference handles / press 'W' to view weighting function
+3. press 'E' + ' ' to view skeleton animation
+4. press 'V' + ' ' to view mesh animation based on per-vertex LBS
+5. press 'D' + ' ' to view mesh animation based on dual quaternion skinning
+6. press 'P' + ' ' to view mesh animation based on per-face LBS
+### Context-aware
+1. press 'B' to load data and do precomputation
+2. press 'V' + ' ' to view mesh animation based on per-vertex LBS
+3. press 'Q' + ' ' to view mesh animation based on per-vertex context-aware LBS
 ## Reports
 
 ### Task 2: Rotation Representation discussion
