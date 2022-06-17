@@ -32,14 +32,14 @@ Edit this 'README.md' file to report all your results. Use the ```/res``` folder
 ### Hand
 1. press 'H' to load data and do precomputation
 2. press 'S' to view selected handles / press 'R' to view reference handles / press 'W' to view weighting function
-3. press 'E' + ' ' to view skeleton animation
-4. press 'V' + ' ' to view mesh animation based on per-vertex LBS
-5. press 'D' + ' ' to view mesh animation based on dual quaternion skinning
-6. press 'P' + ' ' to view mesh animation based on per-face LBS
+3. press 'E' then ' ' to view skeleton animation
+4. press 'V' then ' ' to view mesh animation based on per-vertex LBS
+5. press 'D' then ' ' to view mesh animation based on dual quaternion skinning
+6. press 'P' then ' ' to view mesh animation based on per-face LBS
 ### Context-aware
 1. press 'B' to load data and do precomputation
-2. press 'V' + ' ' to view mesh animation based on per-vertex LBS
-3. press 'Q' + ' ' to view mesh animation based on per-vertex context-aware LBS
+2. press 'V' then ' ' to view mesh animation based on per-vertex LBS
+3. press 'Q' then ' ' to view mesh animation based on per-vertex context-aware LBS
 ## Reports
 
 ### Task 2: Rotation Representation discussion
