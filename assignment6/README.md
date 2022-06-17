@@ -45,7 +45,7 @@ Edit this 'README.md' file to report all your results. Use the ```/res``` folder
 
 | Euler angles -> rotation  matrix |  rotation matrix -> quaternion  |    quaternion + translation -> dual quaternion   |
 | :------------------------------: |:------------------------------: |:-----------------------------------------------: |
-| [solution](./res/../assignment6.pdf)                            | [solution](./res/../assignment6.pdf)                          |[solution](./res/../assignment6.pdf)                                            | 
+| [solution](./res/task_2_2.pdf.pdf)                            | [solution](./res/task_2_2.pdf.pdf)                        [solution](./res/task_2_2.pdf.pdf)                                            | 
 
 ### Task 3: animation of the skeleton
 | from rotaton matrix  |  from quaternions   |
