@@ -69,9 +69,6 @@ void show_skeleton (Viewer& viewer, Eigen::MatrixXd& C, Eigen::MatrixXi& E) {
     return ;
 }
 
-// 1, write down what I am doing
-// 2, write down every possible subtask that I can come up with
-// 3, cross the ones that do not work / finished
 const Eigen::RowVector3d sea_green(70./255.,252./255.,167./255.);
 void show_mesh_and_skeleton (Viewer& viewer,
     Eigen::MatrixXd& V, Eigen::MatrixXi& F,
